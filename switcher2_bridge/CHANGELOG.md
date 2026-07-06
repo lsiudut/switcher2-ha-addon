@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.8
+
+- Set `init: false` so s6-overlay runs as PID 1 under Home Assistant Supervisor.
+
 ## 0.1.7
 
 - Run the add-on service without `with-contenv`/`bashio` to avoid s6 suexec PID errors.

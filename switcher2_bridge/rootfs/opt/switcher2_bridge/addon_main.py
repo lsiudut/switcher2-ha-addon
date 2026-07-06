@@ -44,26 +44,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "names": {
         "file": str(DEFAULT_NAMES_PATH),
     },
-    "devices": [
-        {
-            "id": "relay_board",
-            "type": "switcher2",
-            "name": "Relay Board",
-            "poll_interval_ms": 200,
-            "write_priority": 10,
-            "unavailable_after_failures": 3,
-            "unavailable_cooldown_s": 5,
-            "serial": {
-                "port": "/dev/ttyUSB0",
-                "baud": 19200,
-                "slave_addr": 22,
-                "parity": "E",
-                "bytesize": 8,
-                "stopbits": 1,
-                "timeout": 0.2,
-            },
-        },
-    ],
+    "devices": [],
 }
 
 
@@ -116,6 +97,14 @@ async def main() -> None:
         cfg = _load_options()
     except Exception as exc:
         log.error("Cannot load add-on options: %s", exc)
+        sys.exit(1)
+
+    devices = cfg.get("devices")
+    if not isinstance(devices, list) or not devices:
+        log.error(
+            "No Modbus devices configured. Open the add-on Configuration tab "
+            "and add at least one device under the 'devices' option before starting."
+        )
         sys.exit(1)
 
     dev = cfg["device"]

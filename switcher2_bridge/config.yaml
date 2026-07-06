@@ -39,20 +39,5 @@ options:
     port: 8090
   names:
     file: /data/names.json
-  devices:
-    - id: relay_board
-      type: switcher2
-      name: Relay Board
-      poll_interval_ms: 200
-      write_priority: 10
-      unavailable_after_failures: 3
-      unavailable_cooldown_s: 5
-      serial:
-        port: /dev/ttyUSB0
-        baud: 19200
-        slave_addr: 22
-        parity: E
-        bytesize: 8
-        stopbits: 1
-        timeout: 0.2
+  devices: []
 schema: false

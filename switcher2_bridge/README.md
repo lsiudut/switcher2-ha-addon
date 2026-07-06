@@ -38,6 +38,8 @@ are deliberately testing a matching network namespace.
 
 ## Example Configuration
 
+The default add-on configuration intentionally has an empty `devices` list. The add-on exits with a clear error until you add at least one Modbus device.
+
 ```yaml
 device:
   name: switcher2

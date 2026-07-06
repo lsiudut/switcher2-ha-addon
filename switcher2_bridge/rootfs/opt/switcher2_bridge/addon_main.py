@@ -23,6 +23,8 @@ from names import NamesStore
 log = logging.getLogger(__name__)
 
 OPTIONS_PATH = Path("/data/options.json")
+CONFIG_DIR = Path("/config")
+DEFAULT_CONFIG_FILE = CONFIG_DIR / "config.yaml"
 DEFAULT_NAMES_PATH = Path("/data/names.json")
 
 
@@ -67,23 +69,27 @@ def _load_options() -> dict[str, Any]:
     if not isinstance(user, dict):
         raise ValueError("/data/options.json must contain a JSON object")
 
-    raw_config = user.get("config_yaml")
-    if raw_config is not None:
-        if not isinstance(raw_config, str):
-            raise ValueError("config_yaml must be a YAML string")
-        if not raw_config.strip():
-            cfg = dict(DEFAULT_CONFIG)
-        else:
-            try:
-                import yaml
-            except ImportError as exc:
-                raise ValueError("PyYAML is required to parse config_yaml") from exc
-            parsed = yaml.safe_load(raw_config)
-            if not isinstance(parsed, dict):
-                raise ValueError("config_yaml must contain a YAML object")
-            cfg = _deep_merge(DEFAULT_CONFIG, parsed)
-    else:
-        cfg = _deep_merge(DEFAULT_CONFIG, user)
+    try:
+        import yaml
+    except ImportError as exc:
+        raise ValueError("PyYAML is required to parse bridge configuration") from exc
+
+    config_file = user.get("config_file", str(DEFAULT_CONFIG_FILE))
+    if not isinstance(config_file, str) or not config_file.strip():
+        raise ValueError("config_file must be a non-empty path")
+    config_path = Path(config_file)
+    if not config_path.is_absolute():
+        config_path = CONFIG_DIR / config_path
+    if not config_path.exists():
+        raise ValueError(
+            f"Bridge config file {config_path} does not exist. "
+            "Create it in the add-on config directory or change config_file."
+        )
+    with config_path.open("r", encoding="utf-8") as f:
+        parsed = yaml.safe_load(f)
+    if not isinstance(parsed, dict):
+        raise ValueError(f"Bridge config file {config_path} must contain a YAML object")
+    cfg = _deep_merge(DEFAULT_CONFIG, parsed)
 
     webui = cfg.setdefault("webui", {})
     webui["host"] = "0.0.0.0"
@@ -119,8 +125,8 @@ async def main() -> None:
     devices = cfg.get("devices")
     if not isinstance(devices, list) or not devices:
         log.error(
-            "No Modbus devices configured. Open the add-on Configuration tab "
-            "and add at least one device under the 'devices' option before starting."
+            "No Modbus devices configured. Add at least one device to "
+            "the bridge config file before starting."
         )
         sys.exit(1)
 

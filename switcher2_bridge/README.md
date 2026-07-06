@@ -36,55 +36,68 @@ mDNS discovery is disabled in add-on mode. Add the bridge manually:
 Use the host address of the Home Assistant machine, not `localhost`, unless you
 are deliberately testing a matching network namespace.
 
-## Example Configuration
+## Bridge Configuration
 
-The add-on configuration has one Supervisor option: `config_yaml`. Paste the full bridge configuration under `config_yaml: |`. If it is empty, the add-on exits with a clear error before touching serial hardware.
+The add-on options intentionally stay small:
 
 ```yaml
-config_yaml: |
-  device:
-    name: switcher2
-    mac: AA:BB:CC:DD:EE:01
-
-  server:
-    port: 6053
-    scheduler_interval_ms: 50
-    poll_interval: 0.2
-
-  webui:
-    enabled: true
-    host: 0.0.0.0
-    port: 8090
-
-  names:
-    file: /data/names.json
-
-  devices:
-    - id: relay_board
-      type: switcher2
-      name: Relay Board
-      poll_interval_ms: 200
-      write_priority: 10
-      unavailable_after_failures: 3
-      unavailable_cooldown_s: 5
-      serial:
-        port: /dev/serial/by-id/usb-your-adapter
-        baud: 19200
-        slave_addr: 22
-        parity: E
-        bytesize: 8
-        stopbits: 1
-        timeout: 0.2
+config_file: config.yaml
 ```
 
-Supported device types:
+Create the bridge configuration file in the add-on config directory. Inside the
+container this file is read as:
+
+```text
+/config/config.yaml
+```
+
+Paste the normal bridge YAML into that file, without any wrapper key:
+
+```yaml
+device:
+  name: switcher2
+  mac: AA:BB:CC:DD:EE:01
+
+server:
+  port: 6053
+  scheduler_interval_ms: 50
+  poll_interval: 0.2
+
+webui:
+  enabled: true
+  host: 0.0.0.0
+  port: 8090
+
+names:
+  file: /data/names.json
+
+devices:
+  - id: relay_board
+    type: switcher2
+    name: Relay Board
+    poll_interval_ms: 200
+    write_priority: 10
+    unavailable_after_failures: 3
+    unavailable_cooldown_s: 5
+    serial:
+      port: /dev/serial/by-id/usb-your-adapter
+      baud: 19200
+      slave_addr: 22
+      parity: E
+      bytesize: 8
+      stopbits: 1
+      timeout: 0.2
+```
+
+Supported `type` values:
 
 - `switcher2`
 - `dds1946_power_meter`
 - `rolettini_blinds`
 
-Prefer stable serial paths such as `/dev/serial/by-id/...` instead of
-`/dev/ttyUSB0`.
+For power meters and Rolettini controllers, use type-specific options such as
+`model`, `wordorder`, `read_fc`, `parameters`, `ha_update_on_change`, and
+`readable_attributes` in this config file.
 
 ## Local Docker Build
 
@@ -94,14 +107,14 @@ From the repository root:
 docker build -t switcher2-bridge-addon:local switcher2_bridge
 ```
 
-Create `/tmp/switcher2-addon-data/options.json` with JSON equivalent to the
-YAML configuration above, then run:
+Create `/tmp/switcher2-addon-data/options.json` with `{"config_file":"config.yaml"}` and `/tmp/switcher2-addon-config/config.yaml` with the bridge YAML above, then run:
 
 ```sh
 docker run --rm \
   --name switcher2-bridge-addon \
   --device /dev/serial/by-id/usb-your-adapter \
   -v /tmp/switcher2-addon-data:/data \
+  -v /tmp/switcher2-addon-config:/config \
   -p 6053:6053 \
   -p 8090:8090 \
   switcher2-bridge-addon:local

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5
+
+- Move bridge configuration to a normal YAML file in the add-on config directory.
+- Replace raw `config_yaml` option with a simple `config_file` path option.
+
 ## 0.1.4
 
 - Replace nested Supervisor device schema with a raw `config_yaml` option.

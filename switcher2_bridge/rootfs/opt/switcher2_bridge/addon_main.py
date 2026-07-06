@@ -23,8 +23,6 @@ from names import NamesStore
 log = logging.getLogger(__name__)
 
 OPTIONS_PATH = Path("/data/options.json")
-CONFIG_DIR = Path("/config")
-DEFAULT_CONFIG_FILE = CONFIG_DIR / "config.yaml"
 DEFAULT_NAMES_PATH = Path("/data/names.json")
 
 
@@ -60,6 +58,58 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
     return merged
 
 
+def _flat_device_to_bridge(device: dict[str, Any]) -> dict[str, Any]:
+    cfg = dict(device)
+
+    serial = {
+        "port": cfg.pop("serial_port", ""),
+        "baud": cfg.pop("serial_baud", 0),
+        "slave_addr": cfg.pop("serial_slave_addr", 0),
+        "parity": cfg.pop("serial_parity", "E"),
+        "bytesize": cfg.pop("serial_bytesize", 8),
+        "stopbits": cfg.pop("serial_stopbits", 1),
+        "timeout": cfg.pop("serial_timeout", 0.2),
+    }
+    cfg["serial"] = serial
+
+    thresholds: dict[str, float] = {}
+    for suffix in ("P", "Ua", "Ub", "Uc", "Ia", "Ib", "Ic", "F"):
+        key = f"ha_update_on_change_{suffix}"
+        value = cfg.pop(key, 0)
+        if isinstance(value, (int, float)) and float(value) > 0:
+            thresholds[suffix] = float(value)
+    if thresholds:
+        cfg["ha_update_on_change"] = thresholds
+
+    if not str(cfg.get("readable_attributes", "")).strip():
+        cfg.pop("readable_attributes", None)
+    if not str(cfg.get("model", "")).strip():
+        cfg.pop("model", None)
+    if not str(cfg.get("wordorder", "")).strip():
+        cfg.pop("wordorder", None)
+    if int(cfg.get("read_fc", 0) or 0) <= 0:
+        cfg.pop("read_fc", None)
+    if int(cfg.get("ha_update_interval_ms", 0) or 0) <= 0:
+        cfg.pop("ha_update_interval_ms", None)
+    if int(cfg.get("ha_max_updates_per_minute", 0) or 0) <= 0:
+        cfg.pop("ha_max_updates_per_minute", None)
+    if not cfg.get("parameters"):
+        cfg.pop("parameters", None)
+
+    return cfg
+
+
+def _normalize_config(cfg: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(cfg)
+    devices = normalized.get("devices", [])
+    if isinstance(devices, list):
+        normalized["devices"] = [
+            _flat_device_to_bridge(device) if isinstance(device, dict) else device
+            for device in devices
+        ]
+    return normalized
+
+
 def _load_options() -> dict[str, Any]:
     if not OPTIONS_PATH.exists():
         log.warning("%s not found; using built-in defaults", OPTIONS_PATH)
@@ -69,27 +119,7 @@ def _load_options() -> dict[str, Any]:
     if not isinstance(user, dict):
         raise ValueError("/data/options.json must contain a JSON object")
 
-    try:
-        import yaml
-    except ImportError as exc:
-        raise ValueError("PyYAML is required to parse bridge configuration") from exc
-
-    config_file = user.get("config_file", str(DEFAULT_CONFIG_FILE))
-    if not isinstance(config_file, str) or not config_file.strip():
-        raise ValueError("config_file must be a non-empty path")
-    config_path = Path(config_file)
-    if not config_path.is_absolute():
-        config_path = CONFIG_DIR / config_path
-    if not config_path.exists():
-        raise ValueError(
-            f"Bridge config file {config_path} does not exist. "
-            "Create it in the add-on config directory or change config_file."
-        )
-    with config_path.open("r", encoding="utf-8") as f:
-        parsed = yaml.safe_load(f)
-    if not isinstance(parsed, dict):
-        raise ValueError(f"Bridge config file {config_path} must contain a YAML object")
-    cfg = _deep_merge(DEFAULT_CONFIG, parsed)
+    cfg = _normalize_config(_deep_merge(DEFAULT_CONFIG, user))
 
     webui = cfg.setdefault("webui", {})
     webui["host"] = "0.0.0.0"
@@ -125,8 +155,8 @@ async def main() -> None:
     devices = cfg.get("devices")
     if not isinstance(devices, list) or not devices:
         log.error(
-            "No Modbus devices configured. Add at least one device to "
-            "the bridge config file before starting."
+            "No Modbus devices configured. Add at least one device "
+            "under the add-on devices option before starting."
         )
         sys.exit(1)
 

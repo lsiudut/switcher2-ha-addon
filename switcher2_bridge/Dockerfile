@@ -9,8 +9,7 @@ RUN \
   && python3 -m pip install --break-system-packages --no-cache-dir \
     "flask>=3.0" \
     "pymodbus>=3.0" \
-    "pyserial>=3.5" \
-    "PyYAML>=6.0"
+    "pyserial>=3.5"
 
 COPY rootfs /
 

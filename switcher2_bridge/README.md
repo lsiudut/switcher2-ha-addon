@@ -36,22 +36,11 @@ mDNS discovery is disabled in add-on mode. Add the bridge manually:
 Use the host address of the Home Assistant machine, not `localhost`, unless you
 are deliberately testing a matching network namespace.
 
-## Bridge Configuration
+## Flattened Add-on Configuration
 
-The add-on options intentionally stay small:
-
-```yaml
-config_file: config.yaml
-```
-
-Create the bridge configuration file in the add-on config directory. Inside the
-container this file is read as:
-
-```text
-/config/config.yaml
-```
-
-Paste the normal bridge YAML into that file, without any wrapper key:
+The add-on configuration is edited directly in Home Assistant. Device entries use
+flat serial fields because Home Assistant Supervisor does not handle deeply
+nested per-device schemas well.
 
 ```yaml
 device:
@@ -79,25 +68,38 @@ devices:
     write_priority: 10
     unavailable_after_failures: 3
     unavailable_cooldown_s: 5
-    serial:
-      port: /dev/serial/by-id/usb-your-adapter
-      baud: 19200
-      slave_addr: 22
-      parity: E
-      bytesize: 8
-      stopbits: 1
-      timeout: 0.2
+    readable_attributes: ""
+    model: ""
+    wordorder: ""
+    read_fc: 0
+    parameters: []
+    ha_update_interval_ms: 0
+    ha_max_updates_per_minute: 0
+    ha_update_on_change_P: 0.0
+    ha_update_on_change_Ua: 0.0
+    ha_update_on_change_Ub: 0.0
+    ha_update_on_change_Uc: 0.0
+    ha_update_on_change_Ia: 0.0
+    ha_update_on_change_Ib: 0.0
+    ha_update_on_change_Ic: 0.0
+    ha_update_on_change_F: 0.0
+    serial_port: /dev/serial/by-id/usb-your-adapter
+    serial_baud: 19200
+    serial_slave_addr: 22
+    serial_parity: E
+    serial_bytesize: 8
+    serial_stopbits: 1
+    serial_timeout: 0.2
 ```
+
+The add-on rebuilds the nested bridge config at startup. Empty strings, zero
+advanced values, and empty parameter lists are ignored.
 
 Supported `type` values:
 
 - `switcher2`
 - `dds1946_power_meter`
 - `rolettini_blinds`
-
-For power meters and Rolettini controllers, use type-specific options such as
-`model`, `wordorder`, `read_fc`, `parameters`, `ha_update_on_change`, and
-`readable_attributes` in this config file.
 
 ## Local Docker Build
 
@@ -107,14 +109,13 @@ From the repository root:
 docker build -t switcher2-bridge-addon:local switcher2_bridge
 ```
 
-Create `/tmp/switcher2-addon-data/options.json` with `{"config_file":"config.yaml"}` and `/tmp/switcher2-addon-config/config.yaml` with the bridge YAML above, then run:
+Create `/tmp/switcher2-addon-data/options.json` with JSON equivalent to the flattened YAML above, then run:
 
 ```sh
 docker run --rm \
   --name switcher2-bridge-addon \
   --device /dev/serial/by-id/usb-your-adapter \
   -v /tmp/switcher2-addon-data:/data \
-  -v /tmp/switcher2-addon-config:/config \
   -p 6053:6053 \
   -p 8090:8090 \
   switcher2-bridge-addon:local

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.6
+
+- Replace file-based config with flattened Supervisor options.
+- Rebuild nested bridge device config at startup from flat device fields.
+
 ## 0.1.5
 
 - Move bridge configuration to a normal YAML file in the add-on config directory.

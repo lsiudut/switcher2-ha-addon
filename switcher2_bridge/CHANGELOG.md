@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- Simplify Supervisor schema to avoid unsupported optional dictionary fields.
+
 ## 0.1.2
 
 - Fix optional Supervisor schema fields so device configs can be saved.

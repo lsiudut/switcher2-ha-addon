@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Fix optional Supervisor schema fields so device configs can be saved.
+
 ## 0.1.1
 
 - Fix add-on service runner path for current Home Assistant base images.

@@ -66,7 +66,24 @@ def _load_options() -> dict[str, Any]:
         user = json.load(f)
     if not isinstance(user, dict):
         raise ValueError("/data/options.json must contain a JSON object")
-    cfg = _deep_merge(DEFAULT_CONFIG, user)
+
+    raw_config = user.get("config_yaml")
+    if raw_config is not None:
+        if not isinstance(raw_config, str):
+            raise ValueError("config_yaml must be a YAML string")
+        if not raw_config.strip():
+            cfg = dict(DEFAULT_CONFIG)
+        else:
+            try:
+                import yaml
+            except ImportError as exc:
+                raise ValueError("PyYAML is required to parse config_yaml") from exc
+            parsed = yaml.safe_load(raw_config)
+            if not isinstance(parsed, dict):
+                raise ValueError("config_yaml must contain a YAML object")
+            cfg = _deep_merge(DEFAULT_CONFIG, parsed)
+    else:
+        cfg = _deep_merge(DEFAULT_CONFIG, user)
 
     webui = cfg.setdefault("webui", {})
     webui["host"] = "0.0.0.0"

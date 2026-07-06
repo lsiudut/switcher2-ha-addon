@@ -20,37 +20,43 @@ written as YAML/JSON in the add-on options editor.
 
 Example:
 
-The default add-on configuration intentionally has an empty `devices` list. The add-on exits with a clear error until you add at least one Modbus device.
+The add-on configuration has one Supervisor option: `config_yaml`. Paste the full bridge configuration under `config_yaml: |`. If it is empty, the add-on exits with a clear error before touching serial hardware.
 
 ```yaml
-device:
-  name: switcher2
-  mac: AA:BB:CC:DD:EE:01
-server:
-  port: 6053
-  scheduler_interval_ms: 50
-webui:
-  enabled: true
-  host: 0.0.0.0
-  port: 8090
-names:
-  file: /data/names.json
-devices:
-  - id: relay_board
-    type: switcher2
-    name: Relay Board
-    poll_interval_ms: 200
-    write_priority: 10
-    unavailable_after_failures: 3
-    unavailable_cooldown_s: 5
-    serial:
-      port: /dev/ttyUSB0
-      baud: 19200
-      slave_addr: 22
-      parity: E
-      bytesize: 8
-      stopbits: 1
-      timeout: 0.2
+config_yaml: |
+  device:
+    name: switcher2
+    mac: AA:BB:CC:DD:EE:01
+
+  server:
+    port: 6053
+    scheduler_interval_ms: 50
+    poll_interval: 0.2
+
+  webui:
+    enabled: true
+    host: 0.0.0.0
+    port: 8090
+
+  names:
+    file: /data/names.json
+
+  devices:
+    - id: relay_board
+      type: switcher2
+      name: Relay Board
+      poll_interval_ms: 200
+      write_priority: 10
+      unavailable_after_failures: 3
+      unavailable_cooldown_s: 5
+      serial:
+        port: /dev/serial/by-id/usb-your-adapter
+        baud: 19200
+        slave_addr: 22
+        parity: E
+        bytesize: 8
+        stopbits: 1
+        timeout: 0.2
 ```
 
 Supported device types:

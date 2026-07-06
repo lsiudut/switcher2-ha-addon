@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Replace nested Supervisor device schema with a raw `config_yaml` option.
+- Parse full bridge configuration inside the add-on to support type-specific keys.
+
 ## 0.1.3
 
 - Simplify Supervisor schema to avoid unsupported optional dictionary fields.

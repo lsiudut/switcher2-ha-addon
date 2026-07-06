@@ -1,0 +1,58 @@
+name: Switcher2 Bridge
+slug: switcher2_bridge
+description: Expose switcher2 Modbus devices to Home Assistant through the ESPHome native API
+version: 0.1.0
+url: https://github.com/lucks/switcher2
+arch:
+  - aarch64
+  - amd64
+  - armv7
+startup: application
+boot: auto
+uart: true
+usb: true
+udev: true
+ingress: true
+ingress_port: 8090
+panel_icon: mdi:toggle-switch
+panel_title: Switcher2
+ports:
+  6053/tcp: 6053
+  8090/tcp: null
+ports_description:
+  6053/tcp: ESPHome native API
+  8090/tcp: Optional direct web UI access
+map:
+  - type: addon_config
+    read_only: false
+options:
+  device:
+    name: switcher2
+    mac: AA:BB:CC:DD:EE:01
+  server:
+    port: 6053
+    scheduler_interval_ms: 50
+    poll_interval: 0.2
+  webui:
+    enabled: true
+    host: 0.0.0.0
+    port: 8090
+  names:
+    file: /data/names.json
+  devices:
+    - id: relay_board
+      type: switcher2
+      name: Relay Board
+      poll_interval_ms: 200
+      write_priority: 10
+      unavailable_after_failures: 3
+      unavailable_cooldown_s: 5
+      serial:
+        port: /dev/ttyUSB0
+        baud: 19200
+        slave_addr: 22
+        parity: E
+        bytesize: 8
+        stopbits: 1
+        timeout: 0.2
+schema: false

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7
+
+- Run the add-on service without `with-contenv`/`bashio` to avoid s6 suexec PID errors.
+
 ## 0.1.6
 
 - Replace file-based config with flattened Supervisor options.

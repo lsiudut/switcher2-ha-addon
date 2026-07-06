@@ -1,7 +1,7 @@
 name: Switcher2 Bridge
 slug: switcher2_bridge
 description: Expose switcher2 Modbus devices to Home Assistant through the ESPHome native API
-version: 0.1.6
+version: 0.1.7
 url: https://github.com/lsiudut/switcher2-ha-addon
 arch:
   - aarch64

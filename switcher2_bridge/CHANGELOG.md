@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- Fix add-on service runner path for current Home Assistant base images.
+- Add an explicit Supervisor options schema so edited configuration is retained.
+- Keep the default `devices` list empty until configured by the user.
+
 ## 0.1.0
 
 - Initial Home Assistant add-on packaging.

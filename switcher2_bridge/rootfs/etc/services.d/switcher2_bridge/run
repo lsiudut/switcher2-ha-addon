@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bashio
+#!/command/with-contenv bashio
 set -e
 
 exec python3 /opt/switcher2_bridge/addon_main.py

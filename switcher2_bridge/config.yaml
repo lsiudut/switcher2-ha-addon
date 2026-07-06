@@ -1,8 +1,8 @@
 name: Switcher2 Bridge
 slug: switcher2_bridge
 description: Expose switcher2 Modbus devices to Home Assistant through the ESPHome native API
-version: 0.1.0
-url: https://github.com/lucks/switcher2
+version: 0.1.1
+url: https://github.com/lsiudut/switcher2-ha-addon
 arch:
   - aarch64
   - amd64
@@ -40,4 +40,50 @@ options:
   names:
     file: /data/names.json
   devices: []
-schema: false
+schema:
+  device:
+    name: str
+    mac: str
+  server:
+    port: port
+    scheduler_interval_ms: int
+    poll_interval: float
+  webui:
+    enabled: bool
+    host: str
+    port: port
+  names:
+    file: str
+  devices:
+    - id: str
+      type: list(switcher2|dds1946|dds1946_power_meter|power_meter|rolettini_blinds)
+      name: str
+      poll_interval_ms: int
+      write_priority: int
+      unavailable_after_failures: int
+      unavailable_cooldown_s: float
+      readable_attributes?: match(.*)
+      model?: list(1p|3p)
+      wordorder?: list(ab|ba)
+      read_fc?: int
+      parameters?: [str]
+      ha_update_interval_ms?: int
+      ha_max_updates_per_minute?: int
+      ha_update_on_change?:
+        P?: float
+        Ua?: float
+        Ub?: float
+        Uc?: float
+        Ia?: float
+        Ib?: float
+        Ic?: float
+        F?: float
+      ha_entities?: match(.*)
+      serial:
+        port: str
+        baud: int
+        slave_addr: int
+        parity: list(N|E|O)
+        bytesize: int
+        stopbits: int
+        timeout: float

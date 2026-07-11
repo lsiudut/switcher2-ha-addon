@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10
+
+- Move routine serial profile changes, serial connection timing, and ESPHome
+  client lifecycle messages from `INFO` to `DEBUG`.
+- Report unavailable-device connection closures and rejections as warnings.
+
 ## 0.1.9
 
 - Advertise cumulative power-meter energy counters as `total_increasing` so

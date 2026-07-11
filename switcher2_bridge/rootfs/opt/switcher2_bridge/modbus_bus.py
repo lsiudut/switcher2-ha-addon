@@ -63,12 +63,12 @@ class ModbusSerialHandle:
             old = self._settings
             start = time.monotonic()
             if old is None:
-                log.info(
+                log.debug(
                     f"{self.port}: opening serial {baud} {bytesize}{parity}{stopbits} "
                     f"timeout={timeout}"
                 )
             else:
-                log.info(
+                log.debug(
                     f"{self.port}: switching serial "
                     f"{old[0]} {old[2]}{old[1]}{old[3]} timeout={old[4]} -> "
                     f"{baud} {bytesize}{parity}{stopbits} timeout={timeout}"
@@ -90,7 +90,7 @@ class ModbusSerialHandle:
                 raise sw2lib.ModbusError(f"Cannot connect to {self.port}")
             self._settings = settings
             elapsed_ms = (time.monotonic() - start) * 1000.0
-            log.info(f"{self.port}: serial ready in {elapsed_ms:.1f} ms")
+            log.debug(f"{self.port}: serial ready in {elapsed_ms:.1f} ms")
 
     def acquire(self) -> None:
         if self._closed:

@@ -235,7 +235,7 @@ class _ClientHandler:
         client_info = fields.get(1, b'')
         if isinstance(client_info, bytes):
             client_info = client_info.decode('utf-8', errors='replace')
-        log.info(f"[{self._addr}] HelloRequest from '{client_info}'")
+        log.debug(f"[{self._addr}] HelloRequest from '{client_info}'")
         body = (
             field_uint32(1, 1) +                              # api_version_major
             field_uint32(2, 10) +                             # api_version_minor
@@ -244,11 +244,11 @@ class _ClientHandler:
         )
         self._send(MSG_HELLO_RESPONSE, body)
         await self._flush()
-        log.info(f"[{self._addr}] ESPHome connection established; device metadata will be rebuilt on request")
+        log.debug(f"[{self._addr}] ESPHome connection established; device metadata will be rebuilt on request")
 
     async def _on_device_info(self) -> None:
         devices = self._bridge.get_esphome_devices()
-        log.info(f"[{self._addr}] Advertising {len(devices)} logical ESPHome device(s)")
+        log.debug(f"[{self._addr}] Advertising {len(devices)} logical ESPHome device(s)")
         self._send(MSG_DEVICE_INFO_RESPONSE, _build_device_info(self._name, self._mac, devices))
         await self._flush()
 
@@ -301,7 +301,7 @@ class _ClientHandler:
     def _on_availability_change(self, available: bool) -> None:
         """Called from asyncio event-loop thread when device goes up or down."""
         if not available:
-            log.info(f"[{self._addr}] Device unavailable — closing connection")
+            log.warning(f"[{self._addr}] Device unavailable — closing connection")
             self._close_writer()
 
     def _on_reconnect_request(self) -> None:
@@ -361,7 +361,7 @@ class _ClientHandler:
     async def run(self) -> None:
         # Reject connection immediately if device is currently unavailable
         if not self._bridge.is_available():
-            log.info(f"[{self._addr}] Rejecting connection — device unavailable")
+            log.warning(f"[{self._addr}] Rejecting connection — device unavailable")
             self._send(MSG_DISCONNECT_REQUEST, b'')
             try:
                 await self._flush()
@@ -406,7 +406,7 @@ class _ClientHandler:
                     log.debug(f"[{self._addr}] Unhandled message type {msg_type}")
 
         except asyncio.IncompleteReadError:
-            log.info(f"[{self._addr}] Client disconnected")
+            log.debug(f"[{self._addr}] Client disconnected")
         except Exception as e:
             log.warning(f"[{self._addr}] Connection error: {e}")
         finally:
@@ -457,6 +457,6 @@ class EspHomeServer:
         writer: asyncio.StreamWriter,
     ) -> None:
         addr = writer.get_extra_info('peername')
-        log.info(f"New connection from {addr}")
+        log.debug(f"New connection from {addr}")
         handler = _ClientHandler(reader, writer, self._bridge, self._name, self._mac)
         await handler.run()

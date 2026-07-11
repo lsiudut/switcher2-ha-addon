@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.9
+
+- Advertise cumulative power-meter energy counters as `total_increasing` so
+  Home Assistant records long-term energy statistics without requiring
+  `last_reset`.
+
 ## 0.1.8
 
 - Set `init: false` so s6-overlay runs as PID 1 under Home Assistant Supervisor.

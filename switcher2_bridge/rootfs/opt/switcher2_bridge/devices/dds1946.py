@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping, Sequence
 
-from entities import Entity, EntityType
+from entities import Entity, EntityType, SensorStateClass
 from devices.base import DeviceInfo, KEY_DEVICE_STRIDE, KEY_METER_BASE, QueuedWrite
 
 
@@ -150,6 +150,11 @@ class Dds1946Device:
                 device_class=p.device_class,
                 unit_of_measurement=p.unit,
                 accuracy_decimals=p.accuracy_decimals,
+                state_class=(
+                    SensorStateClass.TOTAL_INCREASING
+                    if p.name in {"EP_plus", "EP_minus", "EQ_plus", "EQ_minus"}
+                    else SensorStateClass.MEASUREMENT
+                ),
                 param_name=name,
             ))
         self.entities = entities

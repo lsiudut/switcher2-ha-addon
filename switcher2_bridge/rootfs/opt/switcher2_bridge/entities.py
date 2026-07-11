@@ -12,6 +12,13 @@ class EntityType(IntEnum):
     BUTTON = 6
 
 
+class SensorStateClass(IntEnum):
+    NONE = 0
+    MEASUREMENT = 1
+    TOTAL_INCREASING = 2
+    TOTAL = 3
+
+
 @dataclass
 class Entity:
     key: int            # Stable uint32 identifier used in ESPHome API
@@ -26,6 +33,7 @@ class Entity:
     accuracy_decimals: int = 1
     supports_position: bool = False
     force_update: bool = False
+    state_class: SensorStateClass = SensorStateClass.MEASUREMENT
 
     # ESPHome/Home Assistant publication policy. Zero/None values preserve the
     # historical behavior: publish every detected change and do not publish

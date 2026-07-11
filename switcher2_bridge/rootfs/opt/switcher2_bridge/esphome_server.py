@@ -53,10 +53,6 @@ MSG_BUTTON_COMMAND             = 62
 # ColorMode enum values (api.proto)
 COLOR_MODE_ON_OFF = 1
 
-# SensorStateClass enum values (api.proto)
-STATE_CLASS_MEASUREMENT = 1
-
-
 # ---------------------------------------------------------------------------
 # ESPHome response builders
 # ---------------------------------------------------------------------------
@@ -121,7 +117,7 @@ def _build_list_sensor(e: Entity, device_id: int = 0) -> bytes:
         field_int32(7, e.accuracy_decimals) +
         field_bool(8, e.force_update) +
         field_string(9, e.device_class) +
-        field_enum(10, STATE_CLASS_MEASUREMENT) +  # state_class
+        field_enum(10, int(e.state_class)) +
         field_uint32(14, device_id)
     )
 

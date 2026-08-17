@@ -6,11 +6,28 @@
   <title>Modbus Bridge</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
-  <style>[x-cloak] { display: none !important; }</style>
+  <style>
+    [x-cloak] { display: none !important; }
+    html { scroll-behavior: smooth; }
+    body { font-size: 15px; }
+    button, input, select { transition: border-color 120ms, box-shadow 120ms, background-color 120ms; }
+    input:not([type="checkbox"]):not([type="range"]):not([type="file"]):focus,
+    select:focus {
+      border-color: rgb(14 165 233) !important;
+      box-shadow: 0 0 0 3px rgb(14 165 233 / 0.15);
+      outline: none;
+    }
+    input[type="checkbox"] { accent-color: rgb(2 132 199); height: 1rem; width: 1rem; }
+    input[type="range"] { accent-color: rgb(2 132 199); }
+    summary { list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    details[open] .details-chevron { transform: rotate(90deg); }
+    .details-chevron { transition: transform 150ms ease; }
+  </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-900" x-data="app()" x-init="init()" x-cloak>
   <header class="sticky top-0 z-30 bg-slate-950 text-white shadow">
-    <div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
+    <div class="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-4 sm:px-6">
       <div class="flex items-center gap-3">
         <div class="h-2.5 w-2.5 rounded-full" :class="overallOnline() ? 'bg-emerald-400' : 'bg-rose-500'"></div>
         <span class="font-semibold">Modbus Bridge</span>
@@ -22,11 +39,11 @@
     </div>
   </header>
 
-  <main class="mx-auto max-w-7xl px-4 py-6">
-    <div class="mb-5 flex items-center justify-between">
+  <main class="mx-auto max-w-[1600px] px-4 py-4 sm:px-6">
+    <div class="mb-3 flex items-center justify-between">
       <div>
-        <h1 class="text-xl font-semibold text-slate-800">Configured Devices</h1>
-        <p class="mt-1 text-sm text-slate-500">Only devices present in config are shown here.</p>
+        <h1 class="text-xl font-semibold text-slate-800">Devices</h1>
+        <p class="text-sm text-slate-500">Live status and setup for connected controllers.</p>
       </div>
       <button
         @click="refreshAll()"
@@ -45,8 +62,8 @@
 
     <div class="space-y-5">
       <template x-for="device in devices" :key="device.id">
-        <section class="rounded-md border border-slate-200 bg-white shadow-sm">
-          <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+        <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
             <div>
               <div class="flex items-center gap-2">
                 <h2 class="text-lg font-semibold text-slate-800" x-text="device.name"></h2>
@@ -55,14 +72,10 @@
                   :class="device.available ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'"
                   x-text="device.available ? 'Online' : 'Offline'"></span>
               </div>
-              <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                <span><span class="font-medium">ID:</span> <span x-text="device.id"></span></span>
-                <span><span class="font-medium">Type:</span> <span x-text="device.type"></span></span>
-                <span><span class="font-medium">Poll:</span> <span x-text="device.poll_interval_ms + ' ms'"></span></span>
-                <span x-show="device.serial && device.serial.port">
-                  <span class="font-medium">Serial:</span>
-                  <span x-text="serialLabel(device)"></span>
-                </span>
+              <div class="mt-0.5 text-xs text-slate-500">
+                <span x-text="deviceTypeLabel(device)"></span>
+                <span class="mx-1">·</span>
+                <span x-text="device.id"></span>
               </div>
             </div>
             <button
@@ -72,7 +85,7 @@
             </button>
           </div>
 
-          <div class="p-5">
+          <div class="p-4">
             <template x-if="device.web_ui === 'power_meter'">
               <div>
                 <div x-show="!readings[device.id]" class="text-sm text-slate-500">
@@ -144,8 +157,8 @@
                       </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-3">
-                      <input type="range" min="0" max="100" x-model.number="positionDraft[device.id]" class="w-64 max-w-full">
-                      <input type="number" min="0" max="100" x-model.number="positionDraft[device.id]" class="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm">
+                      <input type="range" min="0" max="100" x-model.number="positionDraft[device.id]" @input="markPositionDirty(device.id)" class="w-64 max-w-full">
+                      <input type="number" min="0" max="100" x-model.number="positionDraft[device.id]" @input="markPositionDirty(device.id)" class="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm">
                       <button @click="rolettiniCommand(device, 'set_position', positionDraft[device.id])" class="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Set Position</button>
                     </div>
                   </div>
@@ -242,303 +255,364 @@
 
             <template x-if="device.web_ui === 'switcher2'">
               <div>
-                <div x-show="switcher.error" class="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                  <span x-text="switcher.error"></span>
+                <div x-show="switcher.error" class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                  <strong>Cannot talk to the relay controller.</strong>
+                  <span class="ml-1" x-text="switcher.error"></span>
                 </div>
 
-                <div x-show="!switcher.error" class="space-y-5">
-                  <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <div class="rounded-md border border-slate-200 p-3">
-                      <div class="text-xs font-medium text-slate-500">Firmware</div>
-                      <div class="mt-1 font-semibold" x-text="switcher.status.fw_version ?? '-'"></div>
+                <div x-show="!switcher.error" class="space-y-4">
+                  <div class="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                    <div class="flex items-center gap-2">
+                      <span class="text-slate-500">Controller</span>
+                      <strong x-text="switcher.status.fw_version ?? 'Unknown firmware'"></strong>
                     </div>
-                    <div class="rounded-md border border-slate-200 p-3">
-                      <div class="text-xs font-medium text-slate-500">SDK</div>
-                      <div class="mt-1 font-semibold" x-text="switcher.status.sdk_version ?? '-'"></div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-slate-500">Configuration</span>
+                      <strong :class="switcher.status.dirty ? 'text-amber-700' : 'text-emerald-700'"
+                              x-text="switcher.status.dirty ? 'Not saved to memory' : 'Saved in memory'"></strong>
                     </div>
-                    <div class="rounded-md border border-slate-200 p-3">
-                      <div class="text-xs font-medium text-slate-500">Config</div>
-                      <div class="mt-1 font-semibold" :class="switcher.status.dirty ? 'text-amber-700' : 'text-emerald-700'" x-text="switcher.status.dirty ? 'Unsaved' : 'Saved'"></div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-slate-500">Connection</span>
+                      <strong class="font-mono text-xs" x-text="serialConfigLabel()"></strong>
                     </div>
-                    <div class="rounded-md border border-slate-200 p-3">
-                      <div class="text-xs font-medium text-slate-500">Build</div>
-                      <div class="mt-1 font-semibold tabular-nums" x-text="switcher.status.git_hash ?? '-'"></div>
+                    <div class="ml-auto flex flex-wrap gap-2">
+                      <button @click="configCommand('/api/config/save', 'Configuration saved')"
+                              class="rounded bg-sky-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-600">
+                        Save all to device memory
+                      </button>
+                      <button @click="discardSwitcherDrafts()"
+                              class="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100">
+                        Undo unsaved form edits
+                      </button>
                     </div>
                   </div>
 
-                  <div class="grid gap-5 xl:grid-cols-3">
-                    <div class="rounded-md border border-slate-200 p-4 xl:col-span-2">
-                      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-                        <h3 class="font-semibold text-slate-800">Channels</h3>
-                        <div class="flex flex-wrap gap-2">
-                          <button @click="configCommand('/api/config/save', 'Configuration saved')" class="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Save</button>
-                          <button @click="configCommand('/api/config/discard', 'Configuration discarded', true)" class="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Discard</button>
-                          <button @click="configCommand('/api/config/reset', 'Configuration reset', true)" class="rounded border border-rose-300 px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50">Factory Reset</button>
-                        </div>
+                  <div x-show="hasSwitcherDrafts()" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    Changes are being edited or applied. Choose <strong>Apply channel</strong>
+                    or <strong>Save input</strong> to send form edits, then use
+                    <strong>Save all to device memory</strong> to keep them after a restart.
+                  </div>
+
+                  <div class="grid gap-4 2xl:grid-cols-[minmax(0,3fr)_minmax(20rem,1fr)]">
+                    <section class="rounded-xl border border-slate-200 bg-white p-4">
+                      <div class="mb-3">
+                        <h3 class="font-semibold text-slate-900">Outputs and channels</h3>
+                        <p class="text-xs text-slate-500">Choose a channel below. Its controls and setup appear in the same panel.</p>
                       </div>
 
-                      <div x-show="!switcher.channels.length" class="text-sm text-slate-500">Loading channels...</div>
-                      <div class="space-y-3">
+                      <label class="mb-4 block sm:hidden">
+                        <span class="mb-1 block text-sm font-medium text-slate-700">Channel to view or edit</span>
+                        <select x-model.number="selectedChannel" class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+                          <template x-for="channel in switcher.channels" :key="channel.ch">
+                            <option :value="channel.ch" x-text="'CH ' + (channel.ch + 1) + ' · ' + channel.name + ' · ' + channelStatusLabel(channel)"></option>
+                          </template>
+                        </select>
+                      </label>
+                      <div class="mb-4 hidden gap-1.5 sm:grid sm:grid-cols-4 xl:grid-cols-7">
                         <template x-for="channel in switcher.channels" :key="channel.ch">
-                          <div class="rounded-md border border-slate-200 p-3">
-                            <div class="flex flex-wrap items-center justify-between gap-3">
-                              <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                                <span class="w-10 shrink-0 text-sm font-semibold tabular-nums text-slate-500" x-text="'CH ' + (channel.ch + 1)"></span>
-                                <input x-model="channel.name" @change="saveChannelName(channel)" class="min-w-48 flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm">
-                                <span class="rounded px-2 py-0.5 text-xs font-medium" :class="channel.status ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'" x-text="channelStatusLabel(channel)"></span>
+                          <button @click="selectedChannel = channel.ch" type="button"
+                                  class="min-w-0 rounded-lg border px-2 py-2 text-left"
+                                  :class="selectedChannel === channel.ch ? 'border-sky-500 bg-sky-50 ring-1 ring-sky-500' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'">
+                            <div class="flex items-center justify-between gap-1">
+                              <span class="text-xs font-semibold text-slate-500" x-text="'CH ' + (channel.ch + 1)"></span>
+                              <span class="h-2 w-2 rounded-full"
+                                    :class="channel.status ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+                            </div>
+                            <div class="truncate text-sm font-medium text-slate-800" x-text="channel.name"></div>
+                            <div class="truncate text-[11px] text-slate-500" x-text="channelTypeLabel(channel) + ' · ' + channelStatusLabel(channel)"></div>
+                          </button>
+                        </template>
+                      </div>
+
+                      <template x-if="selectedChannelData()">
+                        <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+                          <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <h4 class="font-semibold text-slate-900"
+                                  x-text="'Channel ' + (selectedChannelData().ch + 1) + ': ' + selectedChannelData().name"></h4>
+                              <p class="text-xs text-slate-500">Changes in this editor are not sent until you click Apply channel.</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1.5">
+                              <template x-if="Number(selectedChannelData().type) === 1">
+                                <div class="flex gap-1.5">
+                                  <button @click="channelCommand(selectedChannelData(), 'off')" class="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">Turn off</button>
+                                  <button @click="channelCommand(selectedChannelData(), 'on')" class="rounded bg-sky-700 px-3 py-1.5 text-sm font-medium text-white">Turn on</button>
+                                </div>
+                              </template>
+                              <template x-if="Number(selectedChannelData().type) === 2">
+                                <div class="flex gap-1.5">
+                                  <button @click="channelCommand(selectedChannelData(), 'pos=0')" class="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm">Close</button>
+                                  <button @click="channelCommand(selectedChannelData(), 'stop')" class="rounded border border-amber-300 bg-white px-3 py-1.5 text-sm text-amber-800">Stop</button>
+                                  <button @click="channelCommand(selectedChannelData(), 'pos=10000')" class="rounded bg-sky-700 px-3 py-1.5 text-sm font-medium text-white">Open</button>
+                                </div>
+                              </template>
+                            </div>
+                          </div>
+
+                          <div class="grid gap-3 md:grid-cols-2">
+                            <label class="block">
+                              <span class="mb-1 block text-sm font-medium text-slate-700">Name shown in Home Assistant</span>
+                              <input x-model="selectedChannelData().name"
+                                     @input="markChannelNameDirty(selectedChannelData().ch)"
+                                     class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm"
+                                     placeholder="For example: Kitchen ceiling">
+                              <span class="mt-1 block text-xs text-slate-500">Use a name a person will recognize.</span>
+                            </label>
+                            <label class="block">
+                              <span class="mb-1 block text-sm font-medium text-slate-700">What is connected?</span>
+                              <select x-model.number="selectedChannelData().type"
+                                      @change="markChannelDirty(selectedChannelData().ch)"
+                                      class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+                                <option :value="0">Nothing / unused channel</option>
+                                <option :value="1">Light or other on/off load</option>
+                                <option :value="2">Motorized blind</option>
+                              </select>
+                              <span class="mt-1 block text-xs text-slate-500">This determines which controls and settings are available.</span>
+                            </label>
+                          </div>
+
+                          <template x-if="Number(selectedChannelData().type) === 1">
+                            <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(15rem,1fr)]">
+                              <div>
+                                <div class="text-sm font-medium text-slate-700">Physical relays used by this channel</div>
+                                <p class="mb-2 text-xs text-slate-500">Select every relay that should switch together with this light.</p>
+                                <div class="grid grid-cols-7 gap-1.5">
+                                  <template x-for="relay in relayIndexes" :key="relay">
+                                    <label class="flex cursor-pointer items-center justify-center gap-1 rounded border border-slate-200 bg-white px-1 py-2 text-xs hover:bg-slate-50">
+                                      <input type="checkbox" :checked="relaySelected(selectedChannelData(), relay)"
+                                             @change="setRelaySelected(selectedChannelData(), relay, $event.target.checked)">
+                                      <span x-text="relay + 1"></span>
+                                    </label>
+                                  </template>
+                                </div>
                               </div>
-                              <div class="flex flex-wrap gap-2">
-                                <button @click="channelCommand(channel, 'off')" class="rounded border border-slate-300 px-2.5 py-1 text-sm text-slate-700 hover:bg-slate-50">Off</button>
-                                <button @click="channelCommand(channel, 'on')" class="rounded border border-slate-300 px-2.5 py-1 text-sm text-slate-700 hover:bg-slate-50">On</button>
-                                <button @click="channelCommand(channel, 'toggle')" class="rounded border border-slate-300 px-2.5 py-1 text-sm text-slate-700 hover:bg-slate-50">Toggle</button>
-                                <button x-show="Number(channel.type) === 2" @click="channelCommand(channel, 'stop')" class="rounded border border-slate-300 px-2.5 py-1 text-sm text-slate-700 hover:bg-slate-50">Stop</button>
+                              <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                                <label class="block">
+                                  <span class="mb-1 block text-sm font-medium text-slate-700">Automatic turn-off</span>
+                                  <div class="flex items-center gap-2">
+                                    <input type="number" min="0" max="65535"
+                                           x-model.number="selectedChannelData().light_off_delay_s"
+                                           @input="markChannelDirty(selectedChannelData().ch)"
+                                           class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+                                    <span class="text-sm text-slate-500">seconds</span>
+                                  </div>
+                                  <span class="mt-1 block text-xs text-slate-500">Enter 0 to keep it on until another command.</span>
+                                </label>
+                                <label class="flex items-start gap-2 rounded border border-slate-200 bg-white p-2.5 text-sm">
+                                  <input type="checkbox" x-model="selectedChannelData().light_default_on"
+                                         @change="markChannelDirty(selectedChannelData().ch)" class="mt-0.5">
+                                  <span><strong class="block font-medium">Turn on after startup</strong><span class="text-xs text-slate-500">Normally leave this off.</span></span>
+                                </label>
                               </div>
                             </div>
+                          </template>
 
-                            <div class="mt-3 grid gap-3 lg:grid-cols-4">
+                          <template x-if="Number(selectedChannelData().type) === 2">
+                            <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                               <label class="block">
-                                <span class="mb-1 block text-xs font-medium text-slate-500">Type</span>
-                                <select x-model.number="channel.type" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
-                                  <option :value="0">Unassigned</option>
-                                  <option :value="1">Light</option>
-                                  <option :value="2">Blind</option>
+                                <span class="mb-1 block text-sm font-medium text-slate-700">Relay for opening / up</span>
+                                <select x-model.number="selectedChannelData().relay_a" @change="markChannelDirty(selectedChannelData().ch)" class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+                                  <option :value="0">Not assigned</option>
+                                  <template x-for="relay in relayIndexes" :key="relay"><option :value="relay + 1" x-text="'Relay ' + (relay + 1)"></option></template>
                                 </select>
                               </label>
-
-                              <template x-if="Number(channel.type) === 1">
-                                <div class="lg:col-span-3">
-                                  <span class="mb-1 block text-xs font-medium text-slate-500">Relays</span>
-                                  <div class="grid grid-cols-7 gap-1">
-                                    <template x-for="relay in relayIndexes" :key="relay">
-                                      <label class="flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-xs">
-                                        <input type="checkbox" :checked="relaySelected(channel, relay)" @change="setRelaySelected(channel, relay, $event.target.checked)">
-                                        <span x-text="relay + 1"></span>
-                                      </label>
-                                    </template>
-                                  </div>
-                                </div>
-                              </template>
-
-                              <template x-if="Number(channel.type) !== 1">
-                                <div class="grid gap-3 sm:grid-cols-2 lg:col-span-3">
-                                  <label class="block">
-                                    <span class="mb-1 block text-xs font-medium text-slate-500">Relay A</span>
-                                    <input type="number" min="0" max="14" x-model.number="channel.relay_a" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
-                                  </label>
-                                  <label class="block">
-                                    <span class="mb-1 block text-xs font-medium text-slate-500">Relay B</span>
-                                    <input type="number" min="0" max="14" x-model.number="channel.relay_b" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
-                                  </label>
-                                </div>
-                              </template>
+                              <label class="block">
+                                <span class="mb-1 block text-sm font-medium text-slate-700">Relay for closing / down</span>
+                                <select x-model.number="selectedChannelData().relay_b" @change="markChannelDirty(selectedChannelData().ch)" class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+                                  <option :value="0">Not assigned</option>
+                                  <template x-for="relay in relayIndexes" :key="relay"><option :value="relay + 1" x-text="'Relay ' + (relay + 1)"></option></template>
+                                </select>
+                              </label>
+                              <label class="block">
+                                <span class="mb-1 block text-sm font-medium text-slate-700">Full opening time</span>
+                                <div class="flex items-center gap-2"><input type="number" min="0" x-model.number="selectedChannelData().travel_ms_open" @input="markChannelDirty(selectedChannelData().ch)" class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm"><span class="text-sm text-slate-500">ms</span></div>
+                              </label>
+                              <label class="block">
+                                <span class="mb-1 block text-sm font-medium text-slate-700">Full closing time</span>
+                                <div class="flex items-center gap-2"><input type="number" min="0" x-model.number="selectedChannelData().travel_ms_close" @input="markChannelDirty(selectedChannelData().ch)" class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm"><span class="text-sm text-slate-500">ms</span></div>
+                              </label>
                             </div>
+                          </template>
 
-                            <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                              <label class="block">
-                                <span class="mb-1 block text-xs font-medium text-slate-500">Open ms</span>
-                                <input type="number" min="0" x-model.number="channel.travel_ms_open" :disabled="Number(channel.type) === 1" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm disabled:bg-slate-100">
-                              </label>
-                              <label class="block">
-                                <span class="mb-1 block text-xs font-medium text-slate-500">Close ms</span>
-                                <input type="number" min="0" x-model.number="channel.travel_ms_close" :disabled="Number(channel.type) === 1" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm disabled:bg-slate-100">
-                              </label>
-                              <label class="block">
-                                <span class="mb-1 block text-xs font-medium text-slate-500">Off delay s</span>
-                                <input type="number" min="0" max="65535" x-model.number="channel.light_off_delay_s" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
-                              </label>
-                              <label class="flex items-end gap-2 pb-2 text-sm text-slate-700">
-                                <input type="checkbox" x-model="channel.light_default_on">
-                                <span>Default on</span>
-                              </label>
-                              <div class="flex items-end">
-                                <button @click="saveChannelConfig(channel)" class="w-full rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Apply</button>
-                              </div>
-                            </div>
+                          <div class="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
+                            <span class="text-xs text-slate-500">Applying changes updates the running controller but does not yet store them permanently.</span>
+                            <button @click="saveChannelConfig(selectedChannelData())" class="shrink-0 rounded bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600">Apply channel</button>
                           </div>
-                        </template>
-                      </div>
-                    </div>
+                        </div>
+                      </template>
+                    </section>
 
-                    <div class="space-y-5">
-                      <div class="rounded-md border border-slate-200 p-4">
-                        <h3 class="mb-3 font-semibold text-slate-800">Inputs</h3>
-                        <div class="grid grid-cols-4 gap-2">
+                    <aside class="grid content-start gap-3 sm:grid-cols-2 2xl:grid-cols-1">
+                      <div class="rounded-xl border border-slate-200 bg-white p-3">
+                        <h3 class="mb-2 text-sm font-semibold text-slate-800">Live physical inputs</h3>
+                        <div class="grid grid-cols-8 gap-1.5">
                           <template x-for="input in inputIndexes" :key="input">
-                            <div class="rounded border border-slate-200 px-2 py-1 text-sm">
-                              <div class="text-xs text-slate-500" x-text="'IN ' + (input + 1)"></div>
-                              <div class="font-semibold" :class="switcher.status.inputs?.[input] ? 'text-emerald-700' : 'text-slate-500'" x-text="switcher.status.inputs?.[input] ? 'On' : 'Off'"></div>
+                            <div class="rounded border border-slate-200 px-1 py-1.5 text-center" :title="switcher.inputNames[input]">
+                              <div class="text-[10px] text-slate-500" x-text="input + 1"></div>
+                              <div class="mx-auto mt-1 h-2.5 w-2.5 rounded-full" :class="switcher.status.inputs?.[input] ? 'bg-emerald-500' : 'bg-slate-300'"></div>
                             </div>
                           </template>
                         </div>
+                        <p class="mt-2 text-xs text-slate-500">Green means the input is active right now.</p>
                       </div>
-
-                      <div class="rounded-md border border-slate-200 p-4">
-                        <h3 class="mb-3 font-semibold text-slate-800">Relays</h3>
-                        <div class="grid grid-cols-7 gap-2">
+                      <div class="rounded-xl border border-slate-200 bg-white p-3">
+                        <h3 class="mb-2 text-sm font-semibold text-slate-800">Live physical relays</h3>
+                        <div class="grid grid-cols-7 gap-1.5">
                           <template x-for="relay in relayIndexes" :key="relay">
-                            <div class="rounded border border-slate-200 px-2 py-1 text-sm">
-                              <div class="text-xs text-slate-500" x-text="relay + 1"></div>
-                              <div class="font-semibold" :class="switcher.status.relays?.[relay] ? 'text-emerald-700' : 'text-slate-500'" x-text="switcher.status.relays?.[relay] ? 'On' : 'Off'"></div>
+                            <div class="rounded border border-slate-200 px-1 py-1.5 text-center" :title="'Physical relay ' + (relay + 1)">
+                              <div class="text-[10px] text-slate-500" x-text="relay + 1"></div>
+                              <div class="mx-auto mt-1 h-2.5 w-2.5 rounded-full" :class="switcher.status.relays?.[relay] ? 'bg-emerald-500' : 'bg-slate-300'"></div>
                             </div>
                           </template>
                         </div>
+                        <p class="mt-2 text-xs text-slate-500">Green means the relay coil is energized.</p>
                       </div>
-
-                      <div class="rounded-md border border-slate-200 p-4">
-                        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-                          <h3 class="font-semibold text-slate-800">Zero Cross</h3>
-                          <label class="flex items-center gap-2 text-sm text-slate-700">
-                            <input type="checkbox" x-model="switcher.zcd.enabled" @change="markZcdDirty()">
-                            <span>Enabled</span>
-                          </label>
-                        </div>
-                        <div class="mb-3 grid grid-cols-3 gap-2 text-sm">
-                          <div class="rounded border border-slate-200 px-2 py-1">
-                            <div class="text-xs text-slate-500">Edges</div>
-                            <div class="font-semibold tabular-nums" x-text="switcher.zcd.edge_count ?? 0"></div>
-                          </div>
-                          <div class="rounded border border-slate-200 px-2 py-1">
-                            <div class="text-xs text-slate-500">Last</div>
-                            <div class="font-semibold tabular-nums" x-text="zcdAgeLabel()"></div>
-                          </div>
-                          <div class="rounded border border-slate-200 px-2 py-1">
-                            <div class="text-xs text-slate-500">Timeouts</div>
-                            <div class="font-semibold tabular-nums" :class="switcher.zcd.fallback_count ? 'text-amber-700' : 'text-slate-700'" x-text="switcher.zcd.fallback_count ?? 0"></div>
-                          </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                          <template x-for="relay in relayIndexes" :key="relay">
-                            <div class="rounded border border-slate-200 p-2">
-                              <div class="mb-2 flex items-center justify-between gap-2">
-                                <label class="flex items-center gap-2 text-sm">
-                                  <input type="checkbox" :checked="zcdRelayEnabled(relay)" @change="setZcdRelayEnabled(relay, $event.target.checked)">
-                                  <span class="font-medium text-slate-700" x-text="'Relay ' + (relay + 1)"></span>
-                                </label>
-                                <span x-show="switcher.zcd.pending?.[relay]" class="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">Pending</span>
-                              </div>
-                              <label class="block">
-                                <span class="mb-1 block text-xs font-medium text-slate-500">Delay ms</span>
-                                <input type="number" min="0" max="32767" :disabled="!zcdRelayEnabled(relay)" :value="zcdRelayDelay(relay)" @input="setZcdRelayDelay(relay, $event.target.value)" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm disabled:bg-slate-100">
-                              </label>
-                            </div>
-                          </template>
-                        </div>
-                        <button @click="saveZcd()" class="mt-3 w-full rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Apply ZCD</button>
-                      </div>
-
-                      <div class="rounded-md border border-slate-200 p-4">
-                        <h3 class="mb-3 font-semibold text-slate-800">Temperatures</h3>
-                        <div class="space-y-2">
+                      <div class="rounded-xl border border-slate-200 bg-white p-3 sm:col-span-2 2xl:col-span-1">
+                        <h3 class="mb-2 text-sm font-semibold text-slate-800">Temperatures</h3>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                           <template x-for="(temp, index) in switcher.status.temperatures ?? []" :key="index">
-                            <div class="flex justify-between gap-3 border-b border-slate-100 py-1 text-sm">
-                              <span class="text-slate-500" x-text="index === 4 ? 'Chip' : 'Sensor ' + (index + 1)"></span>
-                              <span class="tabular-nums" x-text="temp === null || temp === undefined ? '-' : temp + ' C'"></span>
+                            <div class="flex justify-between border-b border-slate-100 py-1">
+                              <span class="text-slate-500" x-text="index === 4 ? 'Controller chip' : 'Sensor ' + (index + 1)"></span>
+                              <span class="tabular-nums" x-text="temp === null || temp === undefined ? 'Not connected' : temp + ' °C'"></span>
                             </div>
                           </template>
                         </div>
                       </div>
-
-                      <div class="rounded-md border border-slate-200 p-4">
-                        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-                          <h3 class="font-semibold text-slate-800">System</h3>
-                          <button @click="rebootSwitcher()" class="rounded border border-rose-300 px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50">Reboot</button>
-                        </div>
-                        <div class="text-sm text-slate-500">Serial: <span x-text="serialConfigLabel()"></span></div>
-                      </div>
-                    </div>
+                    </aside>
                   </div>
 
-                  <div class="grid gap-5 xl:grid-cols-2">
-                    <div class="rounded-md border border-slate-200 p-4">
-                      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-                        <h3 class="font-semibold text-slate-800">Input Actions</h3>
-                        <button @click="refreshSwitcher(true)" class="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Reload</button>
-                      </div>
-                      <div x-show="!switcher.actions.length" class="text-sm text-slate-500">Loading actions...</div>
-                      <div class="space-y-3">
+                  <section class="rounded-xl border border-slate-200 bg-white p-4">
+                    <div class="mb-3">
+                      <h3 class="font-semibold text-slate-900">Wall switches and input actions</h3>
+                      <p class="text-xs text-slate-500">Choose an input, give it a useful name, then decide what each button event should do.</p>
+                    </div>
+                    <label class="mb-4 block sm:hidden">
+                      <span class="mb-1 block text-sm font-medium text-slate-700">Input to configure</span>
+                      <select x-model.number="selectedInput" class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
                         <template x-for="input in inputIndexes" :key="input">
-                          <div class="rounded-md border border-slate-200 p-3">
-                            <div class="mb-2 flex flex-wrap items-center justify-between gap-3">
-                              <input x-model="switcher.inputNames[input]" @change="saveInputName(input)" class="min-w-48 flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm">
-                              <label class="flex items-center gap-2 text-sm">
-                                <span class="text-slate-500">Debounce</span>
-                                <input type="number" min="0" max="65535" x-model.number="switcher.debounce[input]" @change="saveDebounce(input)" class="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm">
-                                <span class="text-slate-500">ms</span>
-                              </label>
+                          <option :value="input" x-text="'IN ' + (input + 1) + ' · ' + switcher.inputNames[input]"></option>
+                        </template>
+                      </select>
+                    </label>
+                    <div class="mb-4 hidden gap-1.5 sm:grid sm:grid-cols-4 lg:grid-cols-8">
+                      <template x-for="input in inputIndexes" :key="input">
+                        <button @click="selectedInput = input" type="button"
+                                class="min-w-0 rounded-lg border px-2 py-2 text-left"
+                                :class="selectedInput === input ? 'border-sky-500 bg-sky-50 ring-1 ring-sky-500' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'">
+                          <div class="flex items-center justify-between gap-1">
+                            <span class="text-xs font-semibold text-slate-500" x-text="'IN ' + (input + 1)"></span>
+                            <span class="h-2 w-2 rounded-full" :class="switcher.status.inputs?.[input] ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+                          </div>
+                          <div class="truncate text-sm font-medium text-slate-800" x-text="switcher.inputNames[input]"></div>
+                        </button>
+                      </template>
+                    </div>
+
+                    <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+                      <div class="grid gap-3 md:grid-cols-[minmax(16rem,2fr)_minmax(12rem,1fr)_auto] md:items-start">
+                        <label class="block">
+                          <span class="mb-1 block text-sm font-medium text-slate-700">Name shown in Home Assistant</span>
+                          <input x-model="switcher.inputNames[selectedInput]" @input="markInputNameDirty(selectedInput)" class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="For example: Hallway switch">
+                          <span class="mt-1 block text-xs text-slate-500">Input <span x-text="selectedInput + 1"></span> on the controller.</span>
+                        </label>
+                        <label class="block">
+                          <span class="mb-1 block text-sm font-medium text-slate-700">Ignore contact bounce for</span>
+                          <div class="flex items-center gap-2"><input type="number" min="0" max="65535" x-model.number="switcher.debounce[selectedInput]" @input="markDebounceDirty(selectedInput)" class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm"><span class="text-sm text-slate-500">ms</span></div>
+                          <span class="mt-1 block text-xs text-slate-500">10 ms is a sensible default for a wall switch.</span>
+                        </label>
+                        <button @click="saveInputConfiguration(selectedInput)" class="mt-6 rounded bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600">Save input</button>
+                      </div>
+
+                      <div class="mt-4 grid gap-2 lg:grid-cols-2 2xl:grid-cols-4">
+                        <template x-for="event in eventIndexes" :key="event">
+                          <div class="rounded-lg border border-slate-200 bg-white p-3">
+                            <div class="mb-2">
+                              <div class="text-sm font-semibold text-slate-800" x-text="eventNames[event]"></div>
+                              <div class="text-xs text-slate-500" x-text="eventDescription(event)"></div>
                             </div>
-                            <div class="grid gap-2 lg:grid-cols-4">
-                              <template x-for="event in eventIndexes" :key="event">
-                                <div class="rounded border border-slate-100 p-2">
-                                  <div class="mb-1 text-xs font-medium text-slate-500" x-text="eventNames[event]"></div>
-                                  <select x-model.number="switcher.actions[input][event].action" class="mb-1 w-full rounded border border-slate-300 px-2 py-1 text-xs">
-                                    <template x-for="option in actionOptions" :key="option.value">
-                                      <option :value="option.value" x-text="option.label"></option>
-                                    </template>
-                                  </select>
-                                  <input type="number" min="0" max="14" x-model.number="switcher.actions[input][event].channel" class="mb-1 w-full rounded border border-slate-300 px-2 py-1 text-xs" placeholder="Channel">
-                                  <input type="number" min="0" max="10000" x-model.number="switcher.actions[input][event].param" class="mb-2 w-full rounded border border-slate-300 px-2 py-1 text-xs" placeholder="Param">
-                                  <button @click="saveAction(input, event)" class="w-full rounded bg-slate-800 px-2 py-1 text-xs font-medium text-white hover:bg-slate-700">Apply</button>
-                                </div>
-                              </template>
-                            </div>
+                            <label class="block">
+                              <span class="mb-1 block text-xs font-medium text-slate-600">Action to perform</span>
+                              <select x-model.number="switcher.actions[selectedInput][event].action" @change="markActionDirty(selectedInput, event)" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
+                                <template x-for="option in actionOptions" :key="option.value"><option :value="option.value" x-text="option.label"></option></template>
+                              </select>
+                            </label>
+                            <label x-show="actionNeedsChannel(switcher.actions[selectedInput][event].action)" class="mt-2 block">
+                              <span class="mb-1 block text-xs font-medium text-slate-600">Channel to control</span>
+                              <select x-model.number="switcher.actions[selectedInput][event].channel" @change="markActionDirty(selectedInput, event)" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
+                                <template x-for="channel in switcher.channels" :key="channel.ch"><option :value="channel.ch" x-text="'CH ' + (channel.ch + 1) + ' · ' + channel.name"></option></template>
+                              </select>
+                            </label>
+                            <label x-show="Number(switcher.actions[selectedInput][event].action) === 4" class="mt-2 block">
+                              <span class="mb-1 block text-xs font-medium text-slate-600">Blind position</span>
+                              <div class="flex items-center gap-2"><input type="number" min="0" max="100" :value="actionPositionPercent(selectedInput, event)" @input="setActionPositionPercent(selectedInput, event, $event.target.value)" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"><span class="text-sm text-slate-500">%</span></div>
+                            </label>
                           </div>
                         </template>
                       </div>
                     </div>
+                  </section>
 
-                    <div class="space-y-5">
-                      <div class="rounded-md border border-slate-200 p-4">
-                        <h3 class="mb-3 font-semibold text-slate-800">Serial</h3>
-                        <div class="grid gap-3 sm:grid-cols-2">
-                          <label class="block sm:col-span-2">
-                            <span class="mb-1 block text-xs font-medium text-slate-500">Port</span>
-                            <input x-model="switcher.serial.port" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
-                          </label>
-                          <label class="block">
-                            <span class="mb-1 block text-xs font-medium text-slate-500">Baud</span>
-                            <input type="number" x-model.number="switcher.serial.baud" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
-                          </label>
-                          <label class="block">
-                            <span class="mb-1 block text-xs font-medium text-slate-500">Slave</span>
-                            <input type="number" min="1" max="247" x-model.number="switcher.serial.slave_addr" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
-                          </label>
-                          <label class="block">
-                            <span class="mb-1 block text-xs font-medium text-slate-500">Parity</span>
-                            <select x-model="switcher.serial.parity" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
-                              <option value="E">Even</option>
-                              <option value="O">Odd</option>
-                              <option value="N">None</option>
-                            </select>
-                          </label>
-                          <label class="block">
-                            <span class="mb-1 block text-xs font-medium text-slate-500">Format</span>
-                            <div class="grid grid-cols-2 gap-2">
-                              <input type="number" min="5" max="8" x-model.number="switcher.serial.bytesize" class="rounded border border-slate-300 px-2 py-1.5 text-sm">
-                              <input type="number" min="1" max="2" x-model.number="switcher.serial.stopbits" class="rounded border border-slate-300 px-2 py-1.5 text-sm">
-                            </div>
-                          </label>
+                  <details class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <summary class="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50">
+                      <div><strong class="text-slate-900">Advanced setup and maintenance</strong><span class="ml-2 text-sm text-slate-500">Zero crossing, serial connection, firmware update, reset</span></div>
+                      <span class="details-chevron text-slate-400">&#9656;</span>
+                    </summary>
+                    <div class="grid gap-4 border-t border-slate-200 bg-slate-50/60 p-4 xl:grid-cols-3">
+                      <div class="rounded-lg border border-slate-200 bg-white p-4">
+                        <div class="mb-3 flex items-start justify-between gap-3">
+                          <div><h4 class="font-semibold text-slate-800">Zero-cross switching</h4><p class="text-xs text-slate-500">Reduces electrical stress by switching near the AC zero crossing.</p></div>
+                          <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="switcher.zcd.enabled" @change="markZcdDirty()"><span>Use globally</span></label>
                         </div>
-                        <button @click="saveSerial()" class="mt-3 rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Reconnect</button>
+                        <div class="mb-3 grid grid-cols-3 gap-2 text-center text-xs">
+                          <div class="rounded bg-slate-100 p-2"><span class="block text-slate-500">Edges seen</span><strong x-text="switcher.zcd.edge_count ?? 0"></strong></div>
+                          <div class="rounded bg-slate-100 p-2"><span class="block text-slate-500">Last edge</span><strong x-text="zcdAgeLabel()"></strong></div>
+                          <div class="rounded bg-slate-100 p-2"><span class="block text-slate-500">Fallbacks</span><strong :class="switcher.zcd.fallback_count ? 'text-amber-700' : ''" x-text="switcher.zcd.fallback_count ?? 0"></strong></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5">
+                          <template x-for="relay in relayIndexes" :key="relay">
+                            <div class="flex items-center gap-2 rounded border border-slate-200 p-1.5 text-xs">
+                              <input type="checkbox" :checked="zcdRelayEnabled(relay)" @change="setZcdRelayEnabled(relay, $event.target.checked)">
+                              <span class="w-12" x-text="'Relay ' + (relay + 1)"></span>
+                              <input aria-label="Delay in milliseconds" title="Delay after zero crossing in milliseconds" type="number" min="0" max="32767" :disabled="!zcdRelayEnabled(relay)" :value="zcdRelayDelay(relay)" @input="setZcdRelayDelay(relay, $event.target.value)" class="min-w-0 flex-1 rounded border border-slate-300 px-1.5 py-1 disabled:bg-slate-100">
+                              <span class="text-slate-400">ms</span>
+                            </div>
+                          </template>
+                        </div>
+                        <button @click="saveZcd()" class="mt-3 w-full rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white">Apply zero-cross settings</button>
                       </div>
 
-                      <div class="rounded-md border border-slate-200 p-4">
-                        <h3 class="mb-3 font-semibold text-slate-800">OTA</h3>
-                        <div class="grid gap-2 text-sm">
-                          <div><span class="text-slate-500">Slot:</span> <span x-text="switcher.ota.slot_label ?? '-'"></span></div>
-                          <div><span class="text-slate-500">Phase:</span> <span x-text="switcher.ota.phase ?? '-'"></span></div>
-                          <div><span class="text-slate-500">Progress:</span> <span x-text="Math.round((switcher.ota.progress ?? 0) * 100) + '%'"></span></div>
-                          <div x-show="switcher.ota.error" class="text-rose-700" x-text="switcher.ota.error"></div>
+                      <div class="rounded-lg border border-slate-200 bg-white p-4">
+                        <h4 class="font-semibold text-slate-800">Controller connection</h4>
+                        <p class="mb-3 text-xs text-slate-500">Change these only when moving the controller or changing its Modbus address.</p>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                          <label class="block sm:col-span-2"><span class="mb-1 block text-xs font-medium text-slate-600">Serial device path</span><input x-model="switcher.serial.port" @input="markSerialDirty()" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm" placeholder="/dev/serial/by-id/..."></label>
+                          <label class="block"><span class="mb-1 block text-xs font-medium text-slate-600">Connection speed (baud)</span><input type="number" x-model.number="switcher.serial.baud" @input="markSerialDirty()" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"></label>
+                          <label class="block"><span class="mb-1 block text-xs font-medium text-slate-600">Modbus device address</span><input type="number" min="1" max="247" x-model.number="switcher.serial.slave_addr" @input="markSerialDirty()" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"></label>
+                          <label class="block"><span class="mb-1 block text-xs font-medium text-slate-600">Parity check</span><select x-model="switcher.serial.parity" @change="markSerialDirty()" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"><option value="E">Even</option><option value="O">Odd</option><option value="N">None</option></select></label>
+                          <div class="grid grid-cols-2 gap-2">
+                            <label><span class="mb-1 block text-xs font-medium text-slate-600">Data bits</span><input type="number" min="5" max="8" x-model.number="switcher.serial.bytesize" @input="markSerialDirty()" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"></label>
+                            <label><span class="mb-1 block text-xs font-medium text-slate-600">Stop bits</span><input type="number" min="1" max="2" x-model.number="switcher.serial.stopbits" @input="markSerialDirty()" class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"></label>
+                          </div>
                         </div>
-                        <div class="mt-3 flex flex-wrap gap-2">
-                          <input type="file" @change="switcher.otaFile = $event.target.files[0]" class="text-sm">
-                          <button @click="flashOta(false)" class="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Flash</button>
-                          <button @click="flashOta(true)" class="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Flash Trial</button>
-                          <button @click="apiPost('/api/ota/trial', {}).then(() => toast('Trial boot started')).then(() => refreshSwitcher(true))" class="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Trial Boot</button>
-                          <button @click="apiPost('/api/ota/abort', {}).then(() => toast('OTA aborted')).then(() => refreshSwitcher(true))" class="rounded border border-rose-300 px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50">Abort</button>
+                        <button @click="saveSerial()" class="mt-3 rounded bg-slate-800 px-3 py-2 text-sm font-medium text-white">Reconnect with these settings</button>
+                      </div>
+
+                      <div class="space-y-4">
+                        <div class="rounded-lg border border-slate-200 bg-white p-4">
+                          <h4 class="font-semibold text-slate-800">Firmware update</h4>
+                          <div class="my-2 grid grid-cols-3 gap-2 text-xs"><div><span class="block text-slate-500">Active slot</span><strong x-text="switcher.ota.slot_label ?? '-'"></strong></div><div><span class="block text-slate-500">State</span><strong x-text="switcher.ota.phase ?? '-'"></strong></div><div><span class="block text-slate-500">Progress</span><strong x-text="Math.round((switcher.ota.progress ?? 0) * 100) + '%'"></strong></div></div>
+                          <div x-show="switcher.ota.error" class="mb-2 rounded bg-rose-50 p-2 text-xs text-rose-700" x-text="switcher.ota.error"></div>
+                          <label class="block"><span class="mb-1 block text-xs font-medium text-slate-600">Firmware image file</span><input type="file" @change="switcher.otaFile = $event.target.files[0]" class="w-full text-sm"></label>
+                          <div class="mt-3 flex flex-wrap gap-2"><button @click="flashOta(false)" class="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-white">Install normally</button><button @click="flashOta(true)" class="rounded border border-slate-300 px-3 py-1.5 text-sm">Install as test image</button><button @click="apiPost('/api/ota/trial', {}).then(() => toast('Trial boot started')).then(() => refreshSwitcher(true))" class="rounded border border-slate-300 px-3 py-1.5 text-sm">Start saved test image</button><button @click="apiPost('/api/ota/abort', {}).then(() => toast('OTA aborted')).then(() => refreshSwitcher(true))" class="rounded border border-rose-300 px-3 py-1.5 text-sm text-rose-700">Cancel update</button></div>
+                        </div>
+                        <div class="rounded-lg border border-rose-200 bg-rose-50 p-4">
+                          <h4 class="font-semibold text-rose-900">Recovery and reset</h4>
+                          <p class="mb-3 text-xs text-rose-700">These actions interrupt service or erase configuration. Use them only when necessary.</p>
+                          <div class="flex flex-wrap gap-2"><button @click="configCommand('/api/config/discard', 'Discard changes made on the controller', true)" class="rounded border border-amber-300 bg-white px-3 py-1.5 text-sm text-amber-800">Reload saved device settings</button><button @click="rebootSwitcher()" class="rounded border border-rose-300 bg-white px-3 py-1.5 text-sm text-rose-700">Restart controller</button><button @click="configCommand('/api/config/reset', 'Factory-reset the controller', true)" class="rounded bg-rose-700 px-3 py-1.5 text-sm font-medium text-white">Erase configuration</button></div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </details>
                 </div>
               </div>
             </template>
@@ -573,6 +647,8 @@
         rolettini: {},
         configDraft: {},
         positionDraft: {},
+        positionDirty: {},
+        positionPending: {},
         switcher: {
           error: null,
           status: {},
@@ -593,21 +669,33 @@
           channelNames: Array.from({ length: 14 }, (_, i) => `Channel ${i + 1}`),
           inputNames: Array.from({ length: 16 }, (_, i) => `Input ${i + 1}`),
         },
+        selectedChannel: 0,
+        selectedInput: 0,
         zcdDirty: false,
         zcdPendingConfig: null,
+        switcherLoaded: false,
+        switcherRefreshInFlight: false,
+        dirty: {
+          channels: {},
+          channelNames: {},
+          actions: {},
+          inputNames: {},
+          debounce: {},
+          serial: false,
+        },
         relayIndexes: Array.from({ length: 14 }, (_, i) => i),
         inputIndexes: Array.from({ length: 16 }, (_, i) => i),
         eventIndexes: Array.from({ length: 4 }, (_, i) => i),
-        eventNames: ['Press', 'Release', 'Short', 'Long'],
+        eventNames: ['Button pressed', 'Button released', 'Short press', 'Long press'],
         actionOptions: [
-          { value: 0, label: 'None' },
-          { value: 1, label: 'Toggle' },
-          { value: 2, label: 'Set on' },
-          { value: 3, label: 'Set off' },
-          { value: 4, label: 'Blind set position' },
-          { value: 5, label: 'Blind open' },
-          { value: 6, label: 'Blind close' },
-          { value: 7, label: 'Blind stop' },
+          { value: 0, label: 'Do nothing' },
+          { value: 1, label: 'Toggle light on or off' },
+          { value: 2, label: 'Turn light on' },
+          { value: 3, label: 'Turn light off' },
+          { value: 4, label: 'Move blind to a position' },
+          { value: 5, label: 'Start opening blind' },
+          { value: 6, label: 'Start closing blind' },
+          { value: 7, label: 'Stop blind' },
         ],
         toasts: [],
         pollTimer: null,
@@ -621,9 +709,26 @@
           return this.devices.some(device => device.available);
         },
 
+        hasSwitcherDrafts() {
+          return this.zcdDirty || this.zcdPendingConfig !== null || this.dirty.serial ||
+            Object.values(this.dirty.channels).some(Boolean) ||
+            Object.values(this.dirty.channelNames).some(Boolean) ||
+            Object.values(this.dirty.actions).some(Boolean) ||
+            Object.values(this.dirty.inputNames).some(Boolean) ||
+            Object.values(this.dirty.debounce).some(Boolean);
+        },
+
         serialLabel(device) {
           const s = device.serial || {};
           return `${s.port ?? ''} ${s.baud ?? ''} ${s.bytesize ?? 8}${s.parity ?? 'E'}${s.stopbits ?? 1} slave ${s.slave_addr ?? s.slave ?? '?'}`;
+        },
+
+        deviceTypeLabel(device) {
+          return {
+            switcher2: 'Relay and blind controller',
+            dds1946_power_meter: 'Electricity meter',
+            rolettini_blinds: 'Blind controller',
+          }[device.type] || device.type;
         },
 
         async refreshAll() {
@@ -664,6 +769,8 @@
         },
 
         async refreshSwitcher(silent = false) {
+          if (this.switcherRefreshInFlight) return;
+          this.switcherRefreshInFlight = true;
           try {
             const [status, channels, actions, debounce, zcd, serial, ota, names] = await Promise.all([
               this.apiGet('/api/status'),
@@ -675,41 +782,124 @@
               this.apiGet('/api/ota/status'),
               this.apiGet('/api/names'),
             ]);
+            const normalizedChannels = this.normalizeChannels(channels);
+            const normalizedActions = this.normalizeActions(actions);
             const normalizedZcd = this.normalizeZcd(zcd);
+            const normalizedSerial = this.normalizeSerial(serial);
+            const serverInputNames = names.input_names ?? [];
             this.switcher = {
               ...this.switcher,
               error: null,
               status,
-              channels: channels.map(channel => ({
-                ...channel,
-                type: Number(channel.type),
-                relay_mask: Number(channel.relay_mask || 0),
-                relay_a: Number(channel.relay_a || 0),
-                relay_b: Number(channel.relay_b || 0),
-                travel_ms_open: Number(channel.travel_ms_open || 0),
-                travel_ms_close: Number(channel.travel_ms_close || 0),
-                light_off_delay_s: Number(channel.light_off_delay_s || 0),
-                light_default_on: Boolean(channel.light_default_on),
-              })),
-              actions: this.normalizeActions(actions),
-              debounce,
+              channels: this.mergeChannelRefresh(normalizedChannels),
+              actions: this.mergeActionRefresh(normalizedActions),
+              debounce: this.mergeArrayRefresh(debounce, this.switcher.debounce, this.dirty.debounce),
               zcd: this.mergeZcdRefresh(normalizedZcd),
-              serial: {
-                port: serial.port ?? '',
-                baud: Number(serial.baud ?? serial.baudrate ?? 19200),
-                slave_addr: Number(serial.slave_addr ?? serial.slave ?? 22),
-                parity: serial.parity ?? 'E',
-                bytesize: Number(serial.bytesize ?? 8),
-                stopbits: Number(serial.stopbits ?? 1),
-              },
+              serial: this.mergeSerialRefresh(normalizedSerial),
               ota,
               channelNames: names.channel_names ?? [],
-              inputNames: names.input_names ?? [],
+              inputNames: this.mergeArrayRefresh(serverInputNames, this.switcher.inputNames, this.dirty.inputNames),
             };
+            this.switcherLoaded = true;
           } catch (error) {
             this.switcher = { ...this.switcher, error: error.message || String(error) };
             if (!silent) this.toast(error.message || String(error), 'error');
+          } finally {
+            this.switcherRefreshInFlight = false;
           }
+        },
+
+        normalizeChannels(channels) {
+          return channels.map(channel => ({
+            ...channel,
+            type: Number(channel.type),
+            relay_mask: Number(channel.relay_mask || 0),
+            relay_a: Number(channel.relay_a || 0),
+            relay_b: Number(channel.relay_b || 0),
+            travel_ms_open: Number(channel.travel_ms_open || 0),
+            travel_ms_close: Number(channel.travel_ms_close || 0),
+            light_off_delay_s: Number(channel.light_off_delay_s || 0),
+            light_default_on: Boolean(channel.light_default_on),
+          }));
+        },
+
+        normalizeSerial(serial) {
+          return {
+            port: serial.port ?? '',
+            baud: Number(serial.baud ?? serial.baudrate ?? 19200),
+            slave_addr: Number(serial.slave_addr ?? serial.slave ?? 22),
+            parity: serial.parity ?? 'E',
+            bytesize: Number(serial.bytesize ?? 8),
+            stopbits: Number(serial.stopbits ?? 1),
+          };
+        },
+
+        mergeChannelRefresh(serverChannels) {
+          if (!this.switcherLoaded) return serverChannels;
+          const configFields = [
+            'type', 'relay_mask', 'relay_a', 'relay_b', 'travel_ms_open',
+            'travel_ms_close', 'light_off_delay_s', 'light_default_on',
+          ];
+          return serverChannels.map(serverChannel => {
+            const ch = serverChannel.ch;
+            const localChannel = this.switcher.channels.find(channel => channel.ch === ch);
+            if (!localChannel) return serverChannel;
+            const merged = { ...serverChannel };
+            if (this.dirty.channels[ch]) {
+              const serverMatches = configFields.every(field =>
+                serverChannel[field] === localChannel[field]
+              );
+              if (serverMatches) {
+                this.dirty.channels[ch] = false;
+              } else {
+                for (const field of configFields) merged[field] = localChannel[field];
+              }
+            }
+            if (this.dirty.channelNames[ch]) merged.name = localChannel.name;
+            return merged;
+          });
+        },
+
+        mergeActionRefresh(serverActions) {
+          if (!this.switcherLoaded) return serverActions;
+          return serverActions.map((row, input) => row.map((serverAction, event) => {
+            const key = `${input}:${event}`;
+            if (!this.dirty.actions[key]) return serverAction;
+            const localAction = this.switcher.actions[input][event];
+            const serverMatches = ['action', 'channel', 'param'].every(field =>
+              Number(serverAction[field]) === Number(localAction[field])
+            );
+            if (serverMatches) {
+              this.dirty.actions[key] = false;
+              return serverAction;
+            }
+            return { ...localAction };
+          }));
+        },
+
+        mergeArrayRefresh(serverValues, localValues, dirtyValues) {
+          if (!this.switcherLoaded) return serverValues;
+          return serverValues.map((value, index) => {
+            if (!dirtyValues[index]) return value;
+            if (value === localValues[index]) {
+              dirtyValues[index] = false;
+              return value;
+            }
+            return localValues[index];
+          });
+        },
+
+        mergeSerialRefresh(serverSerial) {
+          if (!this.switcherLoaded || !this.dirty.serial) return serverSerial;
+          const fields = ['port', 'baud', 'slave_addr', 'parity', 'bytesize', 'stopbits'];
+          const serverMatches = fields.every(field =>
+            serverSerial[field] === this.switcher.serial[field]
+          );
+          if (serverMatches) {
+            this.dirty.serial = false;
+            return serverSerial;
+          }
+          return this.switcher.serial;
         },
 
         normalizeActions(actions) {
@@ -770,11 +960,77 @@
           return channel.status ? 'On' : 'Off';
         },
 
+        channelTypeLabel(channel) {
+          const type = Number(channel.type);
+          if (type === 1) return 'Light';
+          if (type === 2) return 'Blind';
+          return 'Unused';
+        },
+
+        selectedChannelData() {
+          return this.switcher.channels.find(channel => channel.ch === this.selectedChannel)
+            || this.switcher.channels[0]
+            || null;
+        },
+
+        eventDescription(event) {
+          return [
+            'Runs immediately when the contact closes.',
+            'Runs whenever the contact opens.',
+            'Runs after a quick press and release.',
+            'Runs after the button is held down.',
+          ][event] || '';
+        },
+
+        actionNeedsChannel(action) {
+          return Number(action) !== 0;
+        },
+
+        actionPositionPercent(input, event) {
+          const value = Number(this.switcher.actions[input][event].param || 0);
+          return Math.round(value / 100);
+        },
+
+        setActionPositionPercent(input, event, value) {
+          const percent = Math.max(0, Math.min(100, Number(value || 0)));
+          this.switcher.actions[input][event].param = Math.round(percent * 100);
+          this.markActionDirty(input, event);
+        },
+
         relaySelected(channel, relay) {
           return Boolean(Number(channel.relay_mask || 0) & (1 << relay));
         },
 
+        markChannelDirty(ch) {
+          this.dirty.channels[ch] = true;
+        },
+
+        markChannelNameDirty(ch) {
+          this.dirty.channelNames[ch] = true;
+        },
+
+        markActionDirty(input, event) {
+          this.dirty.actions[`${input}:${event}`] = true;
+        },
+
+        markInputNameDirty(input) {
+          this.dirty.inputNames[input] = true;
+        },
+
+        markDebounceDirty(input) {
+          this.dirty.debounce[input] = true;
+        },
+
+        markSerialDirty() {
+          this.dirty.serial = true;
+        },
+
+        markPositionDirty(deviceId) {
+          this.positionDirty[deviceId] = true;
+        },
+
         setRelaySelected(channel, relay, selected) {
+          this.markChannelDirty(channel.ch);
           const bit = 1 << relay;
           const current = Number(channel.relay_mask || 0);
           channel.relay_mask = selected ? (current | bit) : (current & ~bit);
@@ -783,6 +1039,7 @@
         async saveChannelName(channel) {
           try {
             await this.apiPut(`/api/names/channel/${channel.ch}`, { name: channel.name });
+            this.dirty.channelNames[channel.ch] = false;
             this.toast('Channel name saved');
           } catch (error) {
             this.toast(error.message || String(error), 'error');
@@ -791,17 +1048,21 @@
 
         async saveChannelConfig(channel) {
           try {
-            await this.apiPut(`/api/channels/${channel.ch}/config`, {
-              type: Number(channel.type),
-              relay_mask: Number(channel.relay_mask || 0),
-              relay_a: Number(channel.relay_a || 0),
-              relay_b: Number(channel.relay_b || 0),
-              travel_ms_open: Number(channel.travel_ms_open || 0),
-              travel_ms_close: Number(channel.travel_ms_close || 0),
-              light_off_delay_s: Number(channel.light_off_delay_s || 0),
-              light_default_on: Boolean(channel.light_default_on),
-            });
-            this.toast('Channel configuration applied');
+            await Promise.all([
+              this.apiPut(`/api/names/channel/${channel.ch}`, { name: channel.name }),
+              this.apiPut(`/api/channels/${channel.ch}/config`, {
+                type: Number(channel.type),
+                relay_mask: Number(channel.relay_mask || 0),
+                relay_a: Number(channel.relay_a || 0),
+                relay_b: Number(channel.relay_b || 0),
+                travel_ms_open: Number(channel.travel_ms_open || 0),
+                travel_ms_close: Number(channel.travel_ms_close || 0),
+                light_off_delay_s: Number(channel.light_off_delay_s || 0),
+                light_default_on: Boolean(channel.light_default_on),
+              }),
+            ]);
+            this.dirty.channelNames[channel.ch] = false;
+            this.toast(`Channel ${channel.ch + 1} queued for application`);
             await this.refreshSwitcher(true);
           } catch (error) {
             this.toast(error.message || String(error), 'error');
@@ -821,6 +1082,7 @@
         async saveInputName(input) {
           try {
             await this.apiPut(`/api/names/input/${input}`, { name: this.switcher.inputNames[input] });
+            this.dirty.inputNames[input] = false;
             this.toast('Input name saved');
           } catch (error) {
             this.toast(error.message || String(error), 'error');
@@ -905,10 +1167,60 @@
           }
         },
 
+        async saveInputConfiguration(input) {
+          try {
+            const requests = [
+              this.apiPut(`/api/names/input/${input}`, {
+                name: this.switcher.inputNames[input],
+              }),
+              this.apiPut(`/api/debounce/${input}`, {
+                ms: Number(this.switcher.debounce[input] || 0),
+              }),
+              ...this.eventIndexes.map(event => {
+                const row = this.switcher.actions[input][event];
+                return this.apiPut(`/api/actions/${input}/${event}`, {
+                  action: Number(row.action || 0),
+                  channel: Number(row.channel || 0),
+                  param: Number(row.param || 0),
+                });
+              }),
+            ];
+            await Promise.all(requests);
+            this.dirty.inputNames[input] = false;
+            this.toast(`Input ${input + 1} queued for application`);
+            await this.refreshSwitcher(true);
+          } catch (error) {
+            this.toast(error.message || String(error), 'error');
+          }
+        },
+
+        async discardSwitcherDrafts() {
+          if (!window.confirm('Discard all edits currently shown in the Switcher2 forms?')) return;
+          this.dirty = {
+            channels: {},
+            channelNames: {},
+            actions: {},
+            inputNames: {},
+            debounce: {},
+            serial: false,
+          };
+          this.zcdDirty = false;
+          this.zcdPendingConfig = null;
+          await this.refreshSwitcher();
+          this.toast('Edits discarded');
+        },
+
         async configCommand(path, message, confirmAction = false) {
           if (confirmAction && !window.confirm(message + '?')) return;
           try {
             await this.apiPost(path, {});
+            if (path === '/api/config/discard' || path === '/api/config/reset') {
+              this.dirty.channels = {};
+              this.dirty.actions = {};
+              this.dirty.debounce = {};
+              this.zcdDirty = false;
+              this.zcdPendingConfig = null;
+            }
             this.toast(message);
             setTimeout(() => this.refreshSwitcher(true), 600);
           } catch (error) {
@@ -919,7 +1231,7 @@
         async saveSerial() {
           try {
             await this.apiPost('/api/serial', this.switcher.serial);
-            this.toast('Serial reconnected');
+            this.toast('Serial reconnection queued');
             await this.refreshSwitcher(true);
           } catch (error) {
             this.toast(error.message || String(error), 'error');
@@ -968,7 +1280,13 @@
             const data = await this.apiGet(`/api/devices/${encodeURIComponent(device.id)}/rolettini`);
             this.rolettini = { ...this.rolettini, [device.id]: data };
             device.available = data.available;
-            this.positionDraft[device.id] = data.status?.position ?? this.positionDraft[device.id] ?? 0;
+            const serverPosition = data.status?.position;
+            if (this.positionPending[device.id] !== undefined && Number(serverPosition) === Number(this.positionPending[device.id])) {
+              delete this.positionPending[device.id];
+            }
+            if (!this.positionDirty[device.id] && this.positionPending[device.id] === undefined) {
+              this.positionDraft[device.id] = data.status?.position ?? this.positionDraft[device.id] ?? 0;
+            }
             if (!this.configDraft[device.id]) {
               const draft = {};
               for (const field of data.config ?? []) draft[field.symbol] = field.value;
@@ -1033,6 +1351,10 @@
           if (confirmAction && !window.confirm(`Run ${action.replaceAll('_', ' ')} on ${device.name}?`)) return;
           try {
             await this.apiPost(`/api/devices/${encodeURIComponent(device.id)}/rolettini/command`, { action, value });
+            if (action === 'set_position') {
+              this.positionDirty[device.id] = false;
+              this.positionPending[device.id] = value;
+            }
             this.toast('Command queued');
             setTimeout(() => this.refreshRolettini(device, true), 500);
           } catch (error) {

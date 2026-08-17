@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.11
+
+- Replace the long controller forms with compact channel and input selectors,
+  plain-language labels, guided editors, and a separate advanced section.
+- Move the input-action register base from 350 to 700 to match current
+  firmware and avoid the OTA register range.
+
 ## 0.1.10
 
 - Move routine serial profile changes, serial connection timing, and ESPHome

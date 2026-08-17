@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.12
+
+- Resolve web UI requests beneath the active Home Assistant ingress path so
+  API calls reach the add-on instead of Home Assistant Core.
+- Show API failures as connection errors rather than claiming that no devices
+  are configured.
+
 ## 0.1.11
 
 - Replace the long controller forms with compact channel and input selectors,

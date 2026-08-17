@@ -56,7 +56,12 @@
       Loading devices...
     </div>
 
-    <div x-show="!loading && devices.length === 0" class="rounded-md border border-slate-200 bg-white p-6 text-sm text-slate-500">
+    <div x-show="!loading && loadError" class="rounded-md border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+      <strong>Could not load devices.</strong>
+      <span class="ml-1" x-text="loadError"></span>
+    </div>
+
+    <div x-show="!loading && !loadError && devices.length === 0" class="rounded-md border border-slate-200 bg-white p-6 text-sm text-slate-500">
       No devices are configured.
     </div>
 
@@ -642,6 +647,7 @@
     function app() {
       return {
         loading: true,
+        loadError: null,
         devices: [],
         readings: {},
         rolettini: {},
@@ -733,11 +739,13 @@
 
         async refreshAll() {
           this.loading = true;
+          this.loadError = null;
           try {
             this.devices = await this.apiGet('/api/devices');
             await this.refreshReadingsOnly();
           } catch (error) {
-            this.toast(error.message || String(error), 'error');
+            this.loadError = error.message || String(error);
+            this.toast(this.loadError, 'error');
           } finally {
             this.loading = false;
           }
@@ -1261,7 +1269,7 @@
           try {
             const form = new FormData();
             form.append('firmware', this.switcher.otaFile);
-            const response = await fetch(`/api/ota/flash?trial=${trial ? 'true' : 'false'}`, {
+            const response = await fetch(this.apiUrl(`/api/ota/flash?trial=${trial ? 'true' : 'false'}`), {
               method: 'POST',
               body: form,
             });
@@ -1363,7 +1371,7 @@
         },
 
         async apiGet(path) {
-          const response = await fetch(path);
+          const response = await fetch(this.apiUrl(path));
           const text = await response.text();
           let data = {};
           try {
@@ -1385,8 +1393,17 @@
           return this.apiSend(path, 'POST', payload);
         },
 
+        apiUrl(path) {
+          const relativePath = String(path).replace(/^\/+/, '');
+          const base = new URL(window.location.href);
+          base.hash = '';
+          base.search = '';
+          if (!base.pathname.endsWith('/')) base.pathname += '/';
+          return new URL(relativePath, base).toString();
+        },
+
         async apiSend(path, method, payload) {
-          const response = await fetch(path, {
+          const response = await fetch(this.apiUrl(path), {
             method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload ?? {}),

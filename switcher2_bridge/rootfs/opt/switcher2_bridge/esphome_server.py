@@ -289,14 +289,14 @@ class _ClientHandler:
         self._bridge.register_callback(self._on_state_change)
 
     def _on_state_change(self, entity: Entity, new_state) -> None:
-        """Called from asyncio event-loop thread when poll detects a change."""
+        """Forward a state change from a Modbus worker to the asyncio writer."""
         f = entity_state_frame(
             entity,
             new_state,
             self._bridge.esphome_device_id_for_entity(entity),
         )
         if f:
-            self._queue.put_nowait(f)
+            self._loop.call_soon_threadsafe(self._queue.put_nowait, f)
 
     def _on_availability_change(self, available: bool) -> None:
         """Called from asyncio event-loop thread when device goes up or down."""

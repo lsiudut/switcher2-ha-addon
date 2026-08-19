@@ -35,6 +35,8 @@ class QueuedWrite:
     payload: dict[str, Any]
     fn: Callable[[Any], Any]
     desc: str
+    verify_fn: Callable[[Any], dict[int, Any]] | None = None
+    verify_delay_s: float = 0.0
 
 
 class DeviceAdapter(Protocol):

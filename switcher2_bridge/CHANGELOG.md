@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.13
+
+- Re-read a light's authoritative channel-state register 50 ms after a
+  successful command so Home Assistant receives prompt, verified feedback.
+- Wake the ESPHome asyncio writer safely when Modbus workers publish changes,
+  avoiding event-loop-dependent notification delays.
+
 ## 0.1.12
 
 - Resolve web UI requests beneath the active Home Assistant ingress path so

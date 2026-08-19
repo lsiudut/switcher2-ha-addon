@@ -32,6 +32,7 @@ LIGHT_ON = 1
 LIGHT_TOGGLE = 2
 BLIND_STOP = 10001
 BLIND_CALIBRATE = 10002
+LIGHT_VERIFY_DELAY_S = 0.05
 
 
 class Switcher2Device:
@@ -238,8 +239,21 @@ class Switcher2Device:
             ch = int(payload["channel"])
             state = bool(payload["state"])
             reg = sw2lib.HR_CH_CMD_BASE + ch
-            return QueuedWrite(action, payload, lambda bus: bus.write_hr(reg, LIGHT_ON if state else LIGHT_OFF),
-                               f"light ch={ch} state={state}")
+            key = self.info.index * KEY_DEVICE_STRIDE + KEY_LIGHT_BASE + ch
+
+            def verify(bus):
+                raw_state = bus.read_ir(sw2lib.IR_STATUS_BASE + ch, 1)[0]
+                self.live_status["channel_status"][ch] = raw_state
+                return {key: bool(raw_state)}
+
+            return QueuedWrite(
+                action,
+                payload,
+                lambda bus: bus.write_hr(reg, LIGHT_ON if state else LIGHT_OFF),
+                f"light ch={ch} state={state}",
+                verify_fn=verify,
+                verify_delay_s=LIGHT_VERIFY_DELAY_S,
+            )
         if action == "cover":
             ch = int(payload["channel"])
             stop = bool(payload.get("stop", False))

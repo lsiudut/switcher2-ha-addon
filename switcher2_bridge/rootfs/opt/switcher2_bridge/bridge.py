@@ -57,6 +57,7 @@ class Sw2Bridge:
         self._entities: list[Entity] = []
         self._entity_by_key_map: dict[int, Entity] = {}
         self._state: dict[int, Any] = {}
+        self._state_lock = threading.RLock()
         self._published_state: dict[int, Any] = {}
         self._last_publish_at: dict[int, float] = {}
         self._publish_times: dict[int, list[float]] = {}
@@ -68,6 +69,8 @@ class Sw2Bridge:
         self._write_queue: list[tuple[int, int, str, QueuedWrite, float]] = []
         self._write_seq = itertools.count()
         self._writes_waiting = 0
+        self._verification_lock = threading.Lock()
+        self._verification_timers: set[threading.Timer] = set()
         self._closed = False
         self._init_devices()
         self._write_thread = threading.Thread(
@@ -236,7 +239,8 @@ class Sw2Bridge:
         return list(self._entities)
 
     def get_state(self) -> dict[int, Any]:
-        return dict(self._state)
+        with self._state_lock:
+            return dict(self._state)
 
     def is_available(self) -> bool:
         return any(rec["info"].available for rec in self._devices.values())
@@ -398,7 +402,6 @@ class Sw2Bridge:
     # ------------------------------------------------------------------
 
     def poll_once(self) -> list[tuple[Entity, Any]]:
-        self._ensure_publish_state()
         changes: list[tuple[Entity, Any]] = []
         self._drain_writes()
         now = time.monotonic()
@@ -422,6 +425,13 @@ class Sw2Bridge:
                 self._record_failure(rec, exc)
                 continue
             self._record_success(rec)
+            changes.extend(self._apply_values(values, now))
+        return changes
+
+    def _apply_values(self, values: dict[int, Any], now: float) -> list[tuple[Entity, Any]]:
+        changes: list[tuple[Entity, Any]] = []
+        with self._state_lock:
+            self._ensure_publish_state()
             for key, new_state in values.items():
                 old_state = self._state.get(key, _MISSING)
                 if old_state is _MISSING or new_state != old_state:
@@ -430,7 +440,8 @@ class Sw2Bridge:
                 if entity is not None and self._should_publish(entity, old_state, new_state, now):
                     changes.append((entity, new_state))
                     self._mark_published(entity, new_state, now)
-                    self._emit_state(entity, new_state)
+        for entity, new_state in changes:
+            self._emit_state(entity, new_state)
         return changes
 
     def _ensure_publish_state(self) -> None:
@@ -522,6 +533,42 @@ class Sw2Bridge:
                 self._write_cv.notify_all()
         if ok:
             self._record_success(rec)
+            self._schedule_write_verification(dev_id, write)
+
+    def _schedule_write_verification(self, dev_id: str, write: QueuedWrite) -> None:
+        if write.verify_fn is None or write.verify_delay_s <= 0:
+            return
+        timer = threading.Timer(
+            write.verify_delay_s,
+            self._run_write_verification,
+            args=(dev_id, write),
+        )
+        timer.daemon = True
+        with self._verification_lock:
+            if self._closed:
+                return
+            self._verification_timers.add(timer)
+        timer.start()
+
+    def _run_write_verification(self, dev_id: str, write: QueuedWrite) -> None:
+        try:
+            if self._closed or write.verify_fn is None:
+                return
+            rec = self._devices.get(dev_id)
+            if rec is None or not self._device_available_for_io(rec):
+                return
+            try:
+                with self._modbus.borrow(dev_id) as bus:
+                    values = write.verify_fn(bus)
+            except sw2lib.ModbusError as exc:
+                self._record_failure(rec, exc)
+                log.debug("%s: post-write verification failed: %s", dev_id, exc)
+                return
+            self._record_success(rec)
+            self._apply_values(values, time.monotonic())
+        finally:
+            with self._verification_lock:
+                self._verification_timers.discard(threading.current_thread())
 
     def _writes_pending(self) -> bool:
         with self._write_lock:
@@ -591,6 +638,11 @@ class Sw2Bridge:
 
     def close(self) -> None:
         self._closed = True
+        with self._verification_lock:
+            timers = list(self._verification_timers)
+            self._verification_timers.clear()
+        for timer in timers:
+            timer.cancel()
         with self._write_cv:
             self._write_cv.notify_all()
         for adapter in self._adapters.values():
